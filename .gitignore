@@ -16,6 +16,8 @@
 /overlay
 /package/feeds
 /package/openwrt-packages
+/package/addtion-luci-app
+/package/OpenAppFilter
 /*.patch
 key-build*
 *.orig
