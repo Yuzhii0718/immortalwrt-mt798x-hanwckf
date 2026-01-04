@@ -794,6 +794,18 @@ define Device/nradio_wt9103_512m
 endef
 TARGET_DEVICES += nradio_wt9103_512m
 
+define Device/philips_hy3000
+  DEVICE_VENDOR := Philips
+  DEVICE_MODEL := HY3000
+  DEVICE_DTS := mt7981-philips-hy3000
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := philips,hy3000
+  DEVICE_PACKAGES := $(MT7981_USB_PKGS) f2fsck losetup mkf2fs kmod-fs-f2fs kmod-mmc \
+	luci-app-samba4
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += philips_hy3000
+
 define Device/routerich_ax3000
   DEVICE_VENDOR := Routerich
   DEVICE_MODEL := AX3000
