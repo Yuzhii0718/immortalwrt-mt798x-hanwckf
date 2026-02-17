@@ -8,7 +8,10 @@ include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=warp
 
-ifeq ($(CONFIG_MTK_MT_WIFI_DRIVER_VERSION_7672),y)
+ifeq ($(CONFIG_MTK_MT_WIFI_DRIVER_VERSION_7661),y)
+	PKG_VERSION:=20221209-3e6ae1
+	PKG_SOURCE:=warp_20221209-3e6ae1-src.tar.xz
+else ifeq ($(CONFIG_MTK_MT_WIFI_DRIVER_VERSION_7672),y)
 	PKG_VERSION:=20231229-5f71ec
 	PKG_SOURCE:=warp_20231229-5f71ec.tar.xz
 else
@@ -16,10 +19,15 @@ else
 	PKG_SOURCE:=warp_20250408-5f71ec.tar.xz
 endif
 
+MT7981_NEW_WOFW_DIR := mt7981-fw-20230411
+MT7986_NEW_WOFW_DIR := mt7986-fw-20230421
+
 PKG_BUILD_DIR:=$(KERNEL_BUILD_DIR)/$(PKG_NAME)
 PKG_KCONFIG:= \
 	WARP_VERSION \
+	WARP_ATC_SUPPORT \
 	WARP_DBG_SUPPORT \
+	WARP_WDMA_RECYCLE_SUPPORT \
 	WED_HW_RRO_SUPPORT \
 	MTK_MEMORY_SHRINK \
 	WARP_CHIPSET \
@@ -46,6 +54,14 @@ define KernelPackage/warp/config
 	source "$(SOURCE)/config.in"
 endef
 
+
+ifeq ($(CONFIG_WARP_VERSION), 3)
+MTK_WIFI_DIR:=$(TOPDIR)/../ko_module/wlan_driver/logan
+else
+MTK_WIFI_DIR:=$(TOPDIR)/../ko_module/wlan_driver/jedi
+endif
+USE_BIN_DIR:=$(MTK_WIFI_DIR)/warp_driver/bin
+
 define Build/Compile
 	$(MAKE) -C "$(LINUX_DIR)" V=1 \
 		$(KERNEL_MAKE_FLAGS) \
@@ -66,9 +82,17 @@ MAKE_FLAGS += CONFIG_SUPPORT_OPENWRT=y
 define KernelPackage/warp/install
 	$(INSTALL_DIR) $(1)/lib/firmware
 	if [ "$$(CONFIG_WARP_CHIPSET)" = "mt7981" ]; then \
-		cp $(PKG_BUILD_DIR)/bin/7981*WOCPU*_RAM_CODE_release.bin $(1)/lib/firmware/; \
+		if [ "$$(CONFIG_WARP_NEW_FW)" = "y" ]; then \
+			cp ./files/$$(MT7981_NEW_WOFW_DIR)/7981*WOCPU*_RAM_CODE_release.bin $(1)/lib/firmware/; \
+		else \
+			cp $(PKG_BUILD_DIR)/bin/7981*WOCPU*_RAM_CODE_release.bin $(1)/lib/firmware/; \
+		fi; \
 	elif [ "$$(CONFIG_WARP_CHIPSET)" = "mt7986" ]; then \
-		cp $(PKG_BUILD_DIR)/bin/7986*WOCPU*_RAM_CODE_release.bin $(1)/lib/firmware/; \
+		if [ "$$(CONFIG_WARP_NEW_FW)" = "y" ]; then \
+			cp ./files/$$(MT7986_NEW_WOFW_DIR)/7986*WOCPU*_RAM_CODE_release.bin $(1)/lib/firmware/; \
+		else \
+			cp $(PKG_BUILD_DIR)/bin/7986*WOCPU*_RAM_CODE_release.bin $(1)/lib/firmware/; \
+		fi; \
 	fi
 endef
 
