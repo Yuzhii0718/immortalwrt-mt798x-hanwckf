@@ -16,7 +16,9 @@ case "$board" in
 cmcc,rax3000m-emmc |\
 cmcc,xr30-emmc |\
 glinet,gl-mt6000 |\
-jdcloud,re-cp-03)
+jdcloud,re-cp-03 |\
+philips,hy3000 |\
+sn,r1)
 	env_dev=$(find_mmc_part "u-boot-env")
 	[ -n "$env_dev" ] && ubootenv_add_uci_config "$env_dev" "0" "0x80000"
 	;;
