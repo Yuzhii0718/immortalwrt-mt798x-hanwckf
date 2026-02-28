@@ -88,6 +88,26 @@ local methods = {
 				fd:close()
 			end
 
+			-- add: read the total number of current contrack.
+            local conntrack_count_path = "/proc/sys/net/netfilter/nf_conntrack_count"
+            local fd_conntrack_count = io.open(conntrack_count_path, 'r')
+            if fd_conntrack_count then
+                ppe_stat['Conntrack_Count'] = fd_conntrack_count:read("*l")
+                fd_conntrack_count:close()
+			else
+				ppe_stat['Conntrack_Count'] = '0'
+            end
+
+            -- add: read the max number of current contrack.
+            local conntrack_max_path = "/proc/sys/net/netfilter/nf_conntrack_max"
+            local fd_conntrack_max = io.open(conntrack_max_path, 'r')
+            if fd_conntrack_max then
+                ppe_stat['Conntrack_Max'] = fd_conntrack_max:read("*l") -- read line 1
+                fd_conntrack_max:close()
+            else
+                ppe_stat['Conntrack_Max'] = '65536' -- default value.
+            end
+
 			print(json.stringify(ppe_stat))
 		end
 	}
