@@ -29,6 +29,7 @@ livinet,zr-3020*)
 	;;
 h3c,nx30pro |\
 *clt,r30b1* |\
+ruijie,rg-x60-new* |\
 ruijie,rg-x60-pro* |\
 cmcc,xr30 |\
 cmcc,rax3000m)
