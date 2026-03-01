@@ -510,6 +510,42 @@ define Device/ruijie-rg-x60-pro
 endef
 TARGET_DEVICES += ruijie-rg-x60-pro
 
+define Device/ruijie-rg-x60-new-stock
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := Ruijie RG-X60 New (Stock)
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-new-stock
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  DEVICE_PACKAGES := kmod-phy-airoha-en8811h
+  SUPPORTED_DEVICES := ruijie,rg-x60-new-stock
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 64512k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie-rg-x60-new-stock
+
+define Device/ruijie-rg-x60-new
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := Ruijie RG-X60 New
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-new
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  DEVICE_PACKAGES := kmod-phy-airoha-en8811h
+  SUPPORTED_DEVICES := ruijie,rg-x60-new
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 109568k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie-rg-x60-new
+
 define Device/tplink_tl-common
     DEVICE_VENDOR := TP-Link
     DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
