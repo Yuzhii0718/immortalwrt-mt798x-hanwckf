@@ -200,3 +200,6 @@ msgstr "已绑定连接数"
 
 msgid "Conntrack Entrys"
 msgstr "活动连接"
+
+msgid "CPU Usage"
+msgstr "CPU 使用率"

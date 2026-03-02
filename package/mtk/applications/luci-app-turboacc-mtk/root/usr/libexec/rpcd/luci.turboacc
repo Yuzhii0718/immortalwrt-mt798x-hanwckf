@@ -13,6 +13,116 @@ local function readfile(path)
 	return s and (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
+-- add: Cache last statistics
+-- Define the cache file path (/tmp is a memory file system, which is suitable for temporary caching).
+local CACHE_FILE = "/tmp/turboacc_cpu_stats_cache.json"
+
+local function load_cache()
+    local cache_str = fs.readfile(CACHE_FILE)
+    if cache_str then
+        local parse = json.new()
+        parse:parse(cache_str)
+        return parse:get()
+    end
+    return { total = nil, cores = {} }
+end
+
+local function save_cache(cache)
+    local fd = io.open(CACHE_FILE, "w")
+    if fd then
+        fd:write(json.stringify(cache))
+        fd:close()
+    end
+end
+
+local function get_cpu_usage_all()
+    -- Single read, parsing population and all cores at the same time.
+    local function read_stats_once()
+        local fd = io.open("/proc/stat", "r")
+        if not fd then return nil end
+        local result = {
+            total = nil,
+            cores = {}
+        }
+        local line_num = 0
+        for line in fd:lines() do
+            line_num = line_num + 1
+            if line_num == 1 then
+                -- The first line: overall CPU statistics
+                local user, nice, sys, idle, iowait, irq, softirq, steal, guest, guest_nice = 
+                    string.match(line, "cpu%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)")
+                if user then
+                    local total = tonumber(user) + tonumber(nice) + tonumber(sys) + 
+                                  tonumber(idle) + tonumber(iowait) + tonumber(irq) + 
+                                  tonumber(softirq) + tonumber(steal) + tonumber(guest) + tonumber(guest_nice)
+                    local idle_total = tonumber(idle) + tonumber(iowait)
+                    result.total = { total = total, idle = idle_total }
+                end
+            else
+                -- Subsequent lines: matching cpu0, cpu1, ...
+                local core_id = string.match(line, "^cpu(%d+)%s+")
+                if core_id then
+                    local user, nice, sys, idle, iowait, irq, softirq, steal, guest, guest_nice = 
+                        string.match(line, "cpu%d+%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)")
+                    if user then
+                        local total = tonumber(user) + tonumber(nice) + tonumber(sys) + 
+                                      tonumber(idle) + tonumber(iowait) + tonumber(irq) + 
+                                      tonumber(softirq) + tonumber(steal) + tonumber(guest) + tonumber(guest_nice)
+                        local idle_total = tonumber(idle) + tonumber(iowait)
+                        result.cores[core_id] = { total = total, idle = idle_total }
+                    end
+                end
+            end
+        end
+        fd:close()
+        return result.total and result or nil
+    end
+
+    local last_stats = load_cache()
+    local current = read_stats_once()
+    if not current then
+        return { total_usage = "0%", core_usage = {} }
+    end
+
+    local result = {
+        total_usage = "0%",
+        core_usage = {}
+    }
+
+    -- 1. Calculate the overall utilization rate
+    if last_stats.total then
+        local total_diff = current.total.total - last_stats.total.total
+        local idle_diff = current.total.idle - last_stats.total.idle
+        if total_diff ~= 0 then
+            local usage = 100 * (total_diff - idle_diff) / total_diff
+            result.total_usage = string.format("%.1f%%", usage)
+        end
+    end
+    last_stats.total = current.total
+
+    -- 2. Calculate the utilization rate of each core
+    for core_id, core_current in pairs(current.cores) do
+        local core_last = last_stats.cores[core_id]
+        if not core_last then
+            result.core_usage[string.format("CPU%d", core_id)] = "0%"
+        else
+            local total_diff = core_current.total - core_last.total
+            local idle_diff = core_current.idle - core_last.idle
+            if total_diff == 0 then
+                result.core_usage[string.format("CPU%d", core_id)] = "0%"
+            else
+                local usage = 100 * (total_diff - idle_diff) / total_diff
+                result.core_usage[string.format("CPU%d", core_id)] = string.format("%.1f%%", usage)
+            end
+        end
+        last_stats.cores[core_id] = core_current
+    end
+
+    save_cache(last_stats)
+
+    return result
+end
+
 local methods = {
 	getSystemFeatures = {
 		call = function()
@@ -108,7 +218,27 @@ local methods = {
                 ppe_stat['Conntrack_Max'] = '65536' -- default value.
             end
 
+            -- add: cpu usage.
+            local cpu_all = get_cpu_usage_all()
+            ppe_stat['CPU_USED'] = cpu_all.total_usage
+            ppe_stat['CPU_CORES_USED'] = cpu_all.core_usage
+
 			print(json.stringify(ppe_stat))
+
+            -- {
+            --         "PPE_NUM": "2",
+            --         "ALL_PPE0": "16384",
+            --         "BIND_PPE0": "10",
+            --         "ALL_PPE1": "16384",
+            --         "BIND_PPE1": "0",
+            --         "Conntrack_Count": "1200",
+            --         "Conntrack_Max": "65536",
+            --         "CPU_USED": "9.2%",
+            --         "CPU_CORES_USED": {
+            --             "CPU0": "15.4%",
+            --             "CPU1": "3.1%"
+            --         }
+            -- }
 		end
 	}
 }
