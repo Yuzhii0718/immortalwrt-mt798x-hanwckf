@@ -2,14 +2,13 @@
 #include "mt7981-sn-r1-common.dtsi"
 
 / {
-	model = "SN R1";
-	compatible = "sn,r1", "mediatek,mt7981";
+	model = "SN R1-Longlife";
+	compatible = "sn,r1-longlife", "mediatek,mt7981";
 };
 
 &mmc0 {
 	bus-width = <8>;
-	cap-mmc-highspeed;
-	max-frequency = <52000000>;
+	max-frequency = <26000000>;
 	no-sd;
 	no-sdio;
 	non-removable;

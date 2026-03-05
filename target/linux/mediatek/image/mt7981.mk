@@ -833,3 +833,15 @@ define Device/sn_r1
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += sn_r1
+
+define Device/sn_r1-longlife
+  DEVICE_VENDOR := SN
+  DEVICE_MODEL := R1-Longlife
+  DEVICE_DTS := mt7981-sn-r1-longlife
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := sn,r1-longlife
+  DEVICE_PACKAGES := f2fsck losetup mkf2fs f2fs-tools kmod-fs-f2fs kmod-mmc \
+	luci-app-samba4 e2fsprogs kmod-nvme mmc-utils
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += sn_r1-longlife

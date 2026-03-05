@@ -103,7 +103,7 @@ mediatek_setup_interfaces()
 		ucidef_add_switch "switch0" \
 			"0:lan:1" "2:lan:2" "3:lan:3" "4:wan" "6u@eth0" "5u@eth1"
 		;;
-	sn,r1)
+	sn,r1*)
 		ucidef_set_interfaces_lan_wan "eth0.1" "eth0.2"
 		ucidef_add_switch "switch0" \
 			"1:lan" "2:lan" "3:lan" "4:lan:4" "0:wan" "6t@eth0"
@@ -285,7 +285,7 @@ mediatek_setup_macs()
 			echo "MacAddress=$b1mac" >> ${b1dat}
 		fi
 		;;
-    sn,r1)
+    sn,r1*)
 		lan_mac=$(mmc_get_mac_binary factory 0x2a)
 		wan_mac=$(mmc_get_mac_binary factory 0x24)
 		label_mac=$wan_mac
