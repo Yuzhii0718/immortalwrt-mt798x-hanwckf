@@ -1,0 +1,200 @@
+/dts-v1/;
+#include "mt7981.dtsi"
+
+/ {
+	chosen {
+		bootargs = "console=ttyS0,115200n1 loglevel=8  \
+				earlycon=uart8250,mmio32,0x11002000 \
+				root=PARTLABEL=rootfs rootfstype=squashfs,f2fs";
+	};
+
+	aliases {
+		led-boot = &status_red_led;
+		led-failsafe = &status_red_led;
+		led-running = &status_blue_led;
+		led-upgrade = &status_yellow_led;
+	};
+
+	leds {
+        compatible = "gpio-leds";
+
+        status_blue_led: led-0 {
+                label = "blue:status";
+                gpios = <&pio 11 GPIO_ACTIVE_HIGH>;
+        };
+
+        status_yellow_led: led-1 {
+                label = "yellow:status";
+                gpios = <&pio 12 GPIO_ACTIVE_HIGH>;
+        };
+
+        status_red_led: led-2 {
+                label = "red:status";
+                gpios = <&pio 13 GPIO_ACTIVE_HIGH>;
+        };
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+        
+		reset {
+			label = "reset";
+			linux,code = <KEY_RESTART>;
+			gpios = <&pio 1 GPIO_ACTIVE_LOW>;
+		};
+
+		wps {
+			label = "wps";
+			gpios = <&pio 0 GPIO_ACTIVE_HIGH>;
+			linux,code = <BTN_9>;
+			linux,input-type = <EV_SW>;
+		};
+	};
+
+	memory {
+		reg = <0 0x40000000 0 0x10000000>;
+	};
+
+	reg_3p3v: regulator-3p3v {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-3.3V";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	gsw: gsw@0 {
+		compatible = "mediatek,mt753x";
+		mediatek,ethsys = <&ethsys>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&watchdog {
+	status = "okay";
+};
+
+&eth {
+	status = "okay";
+
+	gmac0: mac@0 {
+		compatible = "mediatek,eth-mac";
+		reg = <0>;
+		phy-mode = "2500base-x";
+
+		fixed-link {
+			speed = <2500>;
+			full-duplex;
+			pause;
+		};
+	};
+
+	gmac1: mac@1 {
+		compatible = "mediatek,eth-mac";
+		reg = <1>;
+		phy-mode = "gmii";
+		phy-handle = <&phy0>;
+	};
+
+	mdio: mdio-bus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		phy0: ethernet-phy@0 {
+			compatible = "ethernet-phy-id03a2.9461";
+			reg = <0>;
+			phy-mode = "gmii";
+			nvmem-cells = <&phy_calibration>;
+			nvmem-cell-names = "phy-cal-data";
+		};
+	};
+};
+
+&gsw {
+	mediatek,mdio = <&mdio>;
+	mediatek,portmap = "wllll";
+	mediatek,mdio_master_pinmux = <0>;
+	reset-gpios = <&pio 39 0>;
+	interrupt-parent = <&pio>;
+	interrupts = <38 IRQ_TYPE_LEVEL_HIGH>;
+	status = "okay";
+
+	port5: port@5 {
+		compatible = "mediatek,mt753x-port";
+		reg = <5>;
+		phy-mode = "sgmii";
+
+		fixed-link {
+			speed = <2500>;
+			full-duplex;
+		};
+	};
+
+	port6: port@6 {
+		compatible = "mediatek,mt753x-port";
+		mediatek,ssc-on;
+		reg = <6>;
+		phy-mode = "sgmii";
+
+		fixed-link {
+			speed = <2500>;
+			full-duplex;
+		};
+	};
+};
+
+&hnat {
+	mtketh-wan = "eth0.2";
+	mtketh-ppd = "eth0.1";
+	mtketh-lan = "eth0";
+	mtketh-max-gmac = <1>;
+	status = "okay";
+};
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spic_pins>;
+	status = "disabled";
+};
+
+&pio {
+	spic_pins: spi1-pins {
+		mux {
+			function = "spi";
+			groups = "spi1_1";
+		};
+	};
+
+	mmc0_pins_default: mmc0-pins-default {
+		mux {
+			function = "flash";
+			groups = "emmc_45";
+		};
+	};
+
+	mmc0_pins_uhs: mmc0-pins-uhs {
+		mux {
+			function = "flash";
+			groups = "emmc_45";
+		};
+	};
+
+	pcie_pins: pcie-pins {
+		mux {
+			function = "pcie";
+			groups = "pcie_pereset", "pcie_clk", "pcie_wake";
+		};
+	};
+};
+
+&pcie {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie_pins>;
+	status = "okay";
+};
