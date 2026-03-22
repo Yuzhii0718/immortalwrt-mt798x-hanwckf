@@ -43,7 +43,8 @@ cmcc,rax3000m)
 	;;
 xiaomi,mi-router-ax3000t* |\
 xiaomi,mi-router-wr30u* |\
-xiaomi,redmi-router-ax6000*)
+xiaomi,redmi-router-ax6000* |\
+*zbtlink,zbt-z8103ax*)
 	ubootenv_add_uci_config "/dev/mtd2" "0x0" "0x10000" "0x20000" "1"
 	;;
 cmcc_a10|\

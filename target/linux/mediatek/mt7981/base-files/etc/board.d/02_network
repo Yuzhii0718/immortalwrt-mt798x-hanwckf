@@ -79,7 +79,8 @@ mediatek_setup_interfaces()
 			"0:lan:3" "1:lan:2" "2:lan:1" "6u@eth0"
 		;;
 	*newland,nl-wr9103* |\
-	*nokia,ea0326gmp*)
+	*nokia,ea0326gmp* |\
+	*zbtlink,zbt-z8103ax*)
 		ucidef_set_interfaces_lan_wan "eth0" "eth1"
 		ucidef_add_switch "switch0" \
 			"1:lan" "2:lan" "3:lan" "6u@eth0"
@@ -323,6 +324,12 @@ mediatek_setup_macs()
 		local wifi_mac=$(mtd_get_mac_binary Factory 0x4)
 		lan_mac=$(macaddr_add $wifi_mac -1)
 		wan_mac=$(macaddr_add $wifi_mac -2)
+		;;
+	*zbtlink,zbt-z8103ax*)
+		local base_mac=$(mtd_get_mac_binary Factory 0x4)
+		lan_mac=$(macaddr_add $base_mac 2)
+		wan_mac=$(macaddr_add $base_mac 3)
+		label_mac=$base_mac
 		;;
 	*)
 		wan_mac=$(mtd_get_mac_binary $part_name $wan_mac_offset)

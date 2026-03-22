@@ -768,6 +768,7 @@ setup_model()
 	ruijie,rg-x30e* |\
 	philips,hy3000 |\
 	sn,r1* |\
+	*zbtlink,zbt-z8103ax* |\
 	*7981*)
 		MT7981_whnat $num_of_wifi $usbnet
 		;;

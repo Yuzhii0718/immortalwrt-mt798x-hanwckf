@@ -214,6 +214,7 @@ platform_do_upgrade() {
 	*nokia,ea0326gmp* |\
 	*newland,nl-wr8103* |\
 	newland,nl-wr9103 |\
+	*zbtlink,zbt-z8103ax* |\
 	*snand*)
 		nand_do_upgrade "$1"
 		;;
@@ -271,6 +272,7 @@ platform_check_image() {
 	*newland,nl-wr8103* |\
 	newland,nl-wr9103 |\
 	nradio,wt9103 |\
+	*zbtlink,zbt-z8103ax* |\
 	philips,hy3000 |\
 	sn,r1* |\
 	*snand* |\
