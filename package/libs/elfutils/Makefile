@@ -66,7 +66,13 @@ CONFIGURE_ARGS += \
 	--disable-debuginfod \
 	--without-lzma
 
-TARGET_CFLAGS += -D_GNU_SOURCE -Wno-unused-result -Wno-format-nonliteral
+CONFIGURE_VARS += \
+	ac_cv_search__obstack_free=yes
+
+TARGET_CFLAGS += \
+	-D_GNU_SOURCE \
+	-Wno-unused-result \
+	-Wno-format-nonliteral
 
 define Build/InstallDev
 	$(INSTALL_DIR) $(1)/usr/include
