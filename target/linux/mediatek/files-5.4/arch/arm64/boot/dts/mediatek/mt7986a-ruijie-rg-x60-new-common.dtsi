@@ -92,11 +92,16 @@
 		#size-cells = <0>;
 
 		phy15: phy@f {
-            compatible = "ethernet-phy-id03a2.a411", "ethernet-phy-ieee802.3-c45";
+            compatible = "ethernet-phy-id03a2.a411";
 			reg = <15>;
-			reset-gpios = <&pio 6 GPIO_ACTIVE_LOW>;
+			reset-gpios = <&pio 6 1>;
 			reset-assert-us = <10000>;
-			reset-deassert-us = <20000>;
+			reset-deassert-us = <10000>;
+
+			phy-mode = "2500base-x";
+			airoha,polarity = <1>;
+			airoha,surge = <0>;
+			airoha,phy-handle;
 		};
 	};
 };
