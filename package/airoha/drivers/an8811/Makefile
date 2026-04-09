@@ -4,7 +4,7 @@ include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=airoha_an8811
-PKG_RELEASE:=1.2.5
+PKG_RELEASE:=1.3.3
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -14,7 +14,7 @@ define KernelPackage/phy-airoha-en8811h
 	TITLE:=Airoha EN8811H PHY driver
 	DEPENDS:=+kmod-libphy
 	FILES:=$(PKG_BUILD_DIR)/mtk/air_en8811h.ko
-	AUTOLOAD:=$(call AutoLoad,10,air_en8811h)
+	AUTOLOAD:=$(call AutoLoad,20,air_en8811h,1)
 	KCONFIG:= \
 	CONFIG_AIROHA_EN8811H_PHY=m \
 	CONFIG_AIROHA_EN8811H_PHY_DEBUGFS=n
@@ -44,6 +44,12 @@ define Build/Compile
 	echo "Failed to compile mtk/air_en8811h"; \
 	fi; \
 )
+endef
+
+define KernelPackage/phy-airoha-en8811h/install
+	@echo copy firmware of air_en8811h
+	$(INSTALL_DIR) $(1)/lib/firmware
+	$(CP) $(PKG_BUILD_DIR)/mtk/*.bin  $(1)/lib/firmware
 endef
 
 $(eval $(call KernelPackage,phy-airoha-en8811h))
