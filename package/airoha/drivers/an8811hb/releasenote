@@ -1,0 +1,99 @@
+[][kernel][common][eth][Update Airoha AN8811HB 2.5G PHY driver to v1.0.0]
+[Description]
+Update Airoha AN8811HB 2.5G PHY driver to v1.0.0.
+
+Change Log:
+[2026/02/25] v1.0.0
+1. EEE support
+2. Add LED mode control and temperature monitoring via debugfs
+3. Refactor GPIO and clock driver register definitions
+
+MD32 FW 26022502 Updated
+- IEEE compliance optimization
+- EEE support
+- Fix for incorrect parameter settings related to Pair swap
+- Surge 5R support
+- Temperature Sensor support
+- 2.5G/1G/100M link stability and performance optimization
+
+DTS Example:
+========================================================================
+If your board that GMAC2 connects with Airoha AN8811HB, please change
+the eth node as following.
+
+&eth {
+	...
+
+	gmac1: mac@1 {
+		compatible = "mediatek,eth-mac";
+		reg = <1>;
+		phy-mode = "2500base-x";
+		phy-handle = <&phy13>;
+	};
+
+	mdio: mdio-bus {
+      		#address-cells = <1>;
+      		#size-cells = <0>;
+
+      		phy13: phy@13 {
+       			compatible = "ethernet-phy-idc0ff.04a0";
+			reg = <13>;
+			phy-mode = "2500base-x";
+			full-duplex;
+			pause;
+			airoha,phy-handle;
+		};
+
+       		...
+	};
+};
+========================================================================
+In addition, if AN8811HB connects with a RESET GPIO, please check the
+GPIO number, and then add reset-gpio related definition to above phy
+node.
+
+reset-gpios = <&gpio 6 1>;
+reset-assert-us = <10000>;
+reset-deassert-us = <10000>;
+========================================================================
+
+Note:
+* SerDes polarity setting could be configured in dts. Please refer to
+the following description.
+Tx Reverse, Rx Normal:
+		airoha,pnswap-tx;
+Tx Normal, Rx Normal:
+		There is no need to add pnswap property in the DTS.
+Tx Reverse, Rx Reverse:
+		airoha,pnswap-tx;
+		airoha,pnswap-rx;
+Tx Normal, Rx Reverse:
+		airoha,pnswap-rx;
+
+* Co-clock output setting could be configured in dts. Please refer to
+the following description.
+- Co-clock output - Disabled
+Do not add "airoha,cko-out" in DTS
+- Co-clock output - Enabled
+Add "airoha,cko-out;"
+
+* phy-handle setting (for AN8811HB initialized) could be configured in dts. Please refer to the following description.
+- Work with phy-handle
+Add "airoha,phy-handle;" in DTS
+- Work with fixed-link
+Do not add "airoha,phy-handle" in DTS
+
+* Surge protection setting could be configured in dts. Please refer to the following description.
+Surge protection - 0R
+Do not add "airoha,surge-5r" in DTS.
+Surge protection - 5R
+Add "airoha,surge-5r;"
+
+Without this patch, unexpected issues may occur with Airoha AN8811HB.
+
+[Release-log]
+N/A
+
+
+Change-Id: I87c93c274dbbe2753dae282bef48413809733bb0
+Reviewed-on: https://gerrit.mediatek.inc/c/openwrt/feeds/mtk_openwrt_feeds/+/11924806

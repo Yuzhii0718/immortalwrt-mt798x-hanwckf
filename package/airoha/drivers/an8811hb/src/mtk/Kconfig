@@ -1,0 +1,13 @@
+
+config AIR_AN8811HB_PHY
+	tristate "Airoha EN8811HB PHY support"
+	depends on PHYLIB
+	help
+	  Enable support for Airoha EN8811HB 2.5G PHY driver.
+
+config AIR_AN8811HB_PHY_DEBUGFS
+	bool "Enable EN8811HB debugfs interface"
+	depends on AIR_AN8811HB_PHY && DEBUG_FS
+	default n
+	help
+	  Enable debugfs runtime diagnostics for EN8811HB PHY.
