@@ -1,7 +1,34 @@
 #!/bin/sh
 
 dev=br-lan
+hash_file="/tmp/hash_records.txt"
 
+generate_index() {
+    local input="$1"
+    local hash_value=$(echo -n "$input" | md5sum | cut -d' ' -f1)
+    local decimal_value=$((0x${hash_value:0:8}))
+    local index=$((decimal_value % 31 + 1))
+    echo $index
+}
+
+find_available_index() {
+    local base_index=$(generate_index "$1")
+    local index=$base_index
+
+    while true; do
+        if grep -q "^$index$" "$hash_file"; then
+            index=$((index % 31 + 1))
+            if [[ $index -eq $base_index ]]; then
+                echo "All slots are full. Returning 0."
+                return 0 
+            fi
+        else
+            echo $index >> "$hash_file"
+            echo $index
+            return 0
+        fi
+    done
+}
 stop_qos() {
 	tc qdisc del dev $dev root 2>/dev/null
 	tc qdisc del dev $dev ingress 2>/dev/null
@@ -12,7 +39,8 @@ stop_qos() {
 start_qos() {
 	local dl=$1
 	local up=$2
-	
+	rm /tmp/hash_records.txt
+    	touch "$hash_file"
 	tc qdisc add dev $dev root handle 1: htb
 	tc class add dev $dev parent 1: classid 1:1 htb rate ${dl}mbit
 	
@@ -39,15 +67,15 @@ iptables_stop() {
 		echo "10 0" > /sys/kernel/debug/hnat/hnat_setting
 		echo "11 30" >/sys/kernel/debug/hnat/hnat_setting
 		for i in $(seq 0 31); do
-		echo 0 0 0 0 0 4 4 > $hqos_path/qdma_txq$i
+		echo 0 0 0 0 0 4 4 > /sys/kernel/debug/hnat/qdma_txq$i
 		done
 		for i in $(seq 32 63); do
-		echo 1 0 0 0 0 4 4 > $hqos_path/qdma_txq$i
+		echo 1 0 0 0 0 4 4 > /sys/kernel/debug/hnat/qdma_txq$i
 		done	
-		echo 0 wrr 10000000 > /sys/kernel/debug/hnat/qdma_sch0
-		echo 0 wrr 10000000 > /sys/kernel/debug/hnat/qdma_sch1
-		echo 0 wrr 10000000 > /sys/kernel/debug/hnat/qdma_sch2
-		echo 0 wrr 10000000 > /sys/kernel/debug/hnat/qdma_sch3
+		echo 0 wrr 25000000 > /sys/kernel/debug/hnat/qdma_sch0
+		echo 0 wrr 25000000 > /sys/kernel/debug/hnat/qdma_sch1
+		echo 0 wrr 25000000 > /sys/kernel/debug/hnat/qdma_sch2
+		echo 0 wrr 25000000 > /sys/kernel/debug/hnat/qdma_sch3
 }
 
 iptables_start_prepare() {
@@ -67,10 +95,10 @@ iptables_start_inital() {
 		iptables -t mangle -D FORWARD  -j eqos
 		iptables -t mangle -A FORWARD  -j eqos	
 		echo 1 > /sys/kernel/debug/hnat/qos_toggle
-		echo 0 wrr 10000000 > /sys/kernel/debug/hnat/qdma_sch0
-		echo 0 wrr 10000000 > /sys/kernel/debug/hnat/qdma_sch1
+		echo 0 wrr 25000000 > /sys/kernel/debug/hnat/qdma_sch0
+		echo 0 wrr 25000000 > /sys/kernel/debug/hnat/qdma_sch1
 		echo 0 0 0 0 0 0 0 > /sys/kernel/debug/hnat/qdma_txq0
-		echo 1 0 0 0 0 0 0 > /sys/kernel/debug/hnat/qdma_txq8
+		echo 1 0 0 0 0 0 0 > /sys/kernel/debug/hnat/qdma_txq32
 		echo "11 5" >/sys/kernel/debug/hnat/hnat_setting
 		uci -q set "turboacc.config.fastpath_mh_eth_hnat_bind_rate"="5"
 		uci -q commit "turboacc"
@@ -97,11 +125,17 @@ case "$1" in
 		ip="$2"
 		dl="$3"
 		up="$4"
-		id="$5" idpair=$((id+32))
 		macaddr="$6"
 		cnt=$(tc class show dev $dev | wc -l)
 		
-		
+		interface="$7"
+		if [ -n "$ip" ]; then
+		id="$(find_available_index "$ip")"
+		elif [ -n "$macaddr" ]; then
+		id="$(find_available_index "$macaddr")"
+		fi
+		idpair=$((id+32))
+
 		if [ $id -lt 32 ]; then
 		iptables -t mangle -D eqos -s $ip -j DSCP --set-dscp ${id}
 		iptables -t mangle -D eqos -d $ip -j DSCP --set-dscp ${idpair}
@@ -133,6 +167,12 @@ case "$1" in
 		
 		tc class add dev ${dev}-ifb parent 1:1 classid 1:1$cnt htb rate ${up}kbit ceil ${up}kbit
 		tc filter add dev ${dev}-ifb parent 1:0 protocol ip u32 match ip src $ip flowid 1:1$cnt
+		fi
+		if [ $interface ]; then
+		iptables -t mangle -D PREROUTING -s $ip -m conntrack --ctstate NEW -j MARK --set-mark 2"$interface"
+		iptables -t mangle -A PREROUTING -s $ip -m conntrack --ctstate NEW -j MARK --set-mark 2"$interface"
+		iptables -t mangle -D PREROUTING -i br-lan -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --restore-mark
+        	iptables -t mangle -A PREROUTING -i br-lan -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --restore-mark
 		fi
 	;;
 	*)
