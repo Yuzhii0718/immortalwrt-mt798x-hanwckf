@@ -51,3 +51,18 @@ msgstr "无线网络设置错误"
 
 msgid "At least one MBSSID needs to be reserved"
 msgstr "至少需要保留1个MBSSID"
+
+msgid "MAC Address"
+msgstr "MAC 地址"
+
+msgid "driver default (%s)"
+msgstr "驱动默认（%s）"
+
+msgid "no override"
+msgstr "非绕过"
+
+msgid "Override default MAC address - the range of usable addresses might be limited by the driver"
+msgstr "覆盖默认 MAC 地址 - 可用地址的范围可能受限于驱动"
+
+msgid "Enables The 802.11k standard provides information to discover the best available access point"
+msgstr "启用 802.11k 自动寻找发现最佳可用接入点的信息"
