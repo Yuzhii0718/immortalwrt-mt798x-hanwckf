@@ -1048,6 +1048,9 @@ return view.extend({
 					{
 						o = ss.taboption('advanced', form.Flag, 'whnat', _('Wireless HWNAT'));
 						o.default = o.enabled;
+ 						
+ 						o = ss.taboption('advanced', form.Flag, 'bandsteering', _('Band Steering'));
+ 						o.default = o.disabled;
 	
 						o = ss.taboption('advanced', form.Value, 'beacon_int', _('Beacon Interval'));
 						o.optional = true;
@@ -1318,6 +1321,10 @@ return view.extend({
 					o = ss.taboption('advanced', form.Flag, 'ieee80211k', _('802.11k'), _('Enables The 802.11k standard provides information to discover the best available access point'));
 					o.default = o.enabled;
 					o.depends('mode', 'ap');
+					
+					o = ss.taboption('advanced', form.Flag, 'ieee80211r', _('802.11r'), _('only supports mt_wifi driver'));
+					o.default = o.disabled;
+					o.depends('mode', 'ap');
 
 					o = ss.taboption('advanced', form.Value, 'wpa_group_rekey', _('Time interval for rekeying GTK'), _('sec'));
 					o.optional    = true;
@@ -1329,6 +1336,18 @@ return view.extend({
 					o.optional    = true;
 					o.placeholder = 0;
 					o.datatype = 'range(-100,0)';
+					o.depends('mode', 'ap');
+					
+					o = ss.taboption('advanced', form.Value, 'steeringthresold', _('802.11V roam steering threshold'), _('dBm'));
+					o.optional    = true;
+					o.placeholder = 0;
+					o.datatype = 'range(-100,0)';
+					o.depends('mode', 'ap');
+					
+					o = ss.taboption('advanced', form.DynamicList, 'steeringbssid',_('802.11V roam target bssid'), _('MAC-List'));
+					o.datatype = 'macaddr';
+					o.optional    = true;
+					o.placeholder = 0;
 					o.depends('mode', 'ap');
 
 					o = ss.taboption('advanced', form.Value, 'assocthres', _('Station associate threshold'), _('dBm'));
