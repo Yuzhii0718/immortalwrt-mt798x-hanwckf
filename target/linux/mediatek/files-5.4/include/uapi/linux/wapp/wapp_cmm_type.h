@@ -1197,6 +1197,56 @@ struct GNU_PACKED wapp_event {
 	wapp_event_data data;
 };
 
+struct GNU_PACKED wapp_event2 {
+	u8 len;
+	u8 event_id;
+	u32 ifindex;
+	struct _wapp_event2_data data;
+};
+typedef struct GNU_PACKED _tbtt_info_set {
+	u8 NrAPTbttOffset;
+	u32 ShortBssid;
+} tbtt_info_set;
+
+typedef struct GNU_PACKED _wapp_nr_info
+{
+	u8 	Bssid[MAC_ADDR_LEN];
+	u32 BssidInfo;
+	u8  RegulatoryClass;
+	u8  ChNum;
+	u8  PhyType;
+	u8  CandidatePrefSubID;
+	u8  CandidatePrefSubLen;
+	u8  CandidatePref;
+	/* extra sec info */
+	u32 akm;
+	u32 cipher;
+	u8  TbttInfoSetNum;
+	tbtt_info_set TbttInfoSet;
+	u8  Rssi;
+} wapp_nr_info;
+
+/* for NR IE , append Bssid ~ CandidatePref */
+#define NEIGHBOR_REPORT_IE_SIZE 	sizeof(wapp_nr_info) - 15
+
+typedef struct daemon_nr_list {
+	u8 	CurrListNum;
+	wapp_nr_info NRInfo[DAEMON_NEIGHBOR_REPORT_MAX_NUM];
+} DAEMON_NR_LIST, *P_DAEMON_NR_LIST;
+
+typedef struct GNU_PACKED daemon_neighbor_report_list {
+	u8	Newlist;
+	u8 	TotalNum;
+	u8 	CurrNum;
+	u8 	reserved;
+	wapp_nr_info EvtNRInfo[PER_EVENT_LIST_MAX_NUM];
+} DAEMON_EVENT_NR_LIST, *P_DAEMON_EVENT_NR_LIST;
+
+
+typedef struct GNU_PACKED neighbor_report_msg {
+	DAEMON_EVENT_NR_LIST evt_nr_list;
+} DAEMON_NR_MSG, *P_DAEMON_NR_MSG;
+
 /* for coverting wireless mode to string  */
 enum WIFI_MODE {
 	WMODE_INVALID = 0,
