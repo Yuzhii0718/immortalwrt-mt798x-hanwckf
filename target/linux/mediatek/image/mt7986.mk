@@ -364,38 +364,6 @@ define Device/mediatek_mt7986-fpga-ubi
 endef
 TARGET_DEVICES += mediatek_mt7986-fpga-ubi
 
-define Device/xiaomi_redmi-router-ax6000
-  DEVICE_VENDOR := Xiaomi
-  DEVICE_MODEL := Redmi Router AX6000
-  DEVICE_DTS := mt7986a-xiaomi-redmi-router-ax6000
-  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
-  DEVICE_PACKAGES := kmod-leds-ws2812b
-  SUPPORTED_DEVICES := xiaomi,redmi-router-ax6000
-  UBINIZE_OPTS := -E 5
-  BLOCKSIZE := 128k
-  PAGESIZE := 2048
-  IMAGE_SIZE := 112640k
-  KERNEL_IN_UBI := 1
-  IMAGES += factory.bin
-  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-endef
-TARGET_DEVICES += xiaomi_redmi-router-ax6000
-
-define Device/xiaomi_redmi-router-ax6000-stock
-  DEVICE_VENDOR := Xiaomi
-  DEVICE_MODEL := Redmi Router AX6000 (stock layout)
-  DEVICE_DTS := mt7986a-xiaomi-redmi-router-ax6000-stock
-  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
-  DEVICE_PACKAGES := kmod-leds-ws2812b
-  SUPPORTED_DEVICES := xiaomi,redmi-router-ax6000-stock
-  UBINIZE_OPTS := -E 5
-  BLOCKSIZE := 128k
-  PAGESIZE := 2048
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-endef
-TARGET_DEVICES += xiaomi_redmi-router-ax6000-stock
-
 define Device/BPI-R3MINI-NAND
   DEVICE_VENDOR := Banana Pi
   DEVICE_MODEL := Banana Pi R3MINI
@@ -462,6 +430,18 @@ define Device/jdcloud_re-cp-03
 endef
 TARGET_DEVICES += jdcloud_re-cp-03
 
+define Device/glinet_gl-mt6000
+   DEVICE_VENDOR := GL.iNet
+   DEVICE_MODEL := GL-MT6000
+   DEVICE_DTS := mt7986a-glinet-gl-mt6000
+   DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+   DEVICE_PACKAGES := $(MT7986_USB_PKGS) f2fsck losetup mkf2fs kmod-fs-f2fs kmod-mmc
+   IMAGES += factory.bin
+   IMAGE/factory.bin := append-kernel | pad-to 32M | append-rootfs
+   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += glinet_gl-mt6000
+
 define Device/netcore_n60
   DEVICE_VENDOR := Netcore
   DEVICE_MODEL := N60
@@ -477,18 +457,6 @@ define Device/netcore_n60
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += netcore_n60
-
-define Device/glinet_gl-mt6000
-   DEVICE_VENDOR := GL.iNet
-   DEVICE_MODEL := GL-MT6000
-   DEVICE_DTS := mt7986a-glinet-gl-mt6000
-   DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
-   DEVICE_PACKAGES := $(MT7986_USB_PKGS) f2fsck losetup mkf2fs kmod-fs-f2fs kmod-mmc
-   IMAGES += factory.bin
-   IMAGE/factory.bin := append-kernel | pad-to 32M | append-rootfs
-   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-endef
-TARGET_DEVICES += glinet_gl-mt6000
 
 define Device/ruijie-rg-x60-pro-stock
   DEVICE_VENDOR := Ruijie
@@ -570,6 +538,38 @@ define Device/tplink_tl-xdr6088
     $(call Device/tplink_tl-common)
 endef
 TARGET_DEVICES += tplink_tl-xdr6088
+
+define Device/xiaomi_redmi-router-ax6000
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Redmi Router AX6000
+  DEVICE_DTS := mt7986a-xiaomi-redmi-router-ax6000
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  DEVICE_PACKAGES := kmod-leds-ws2812b
+  SUPPORTED_DEVICES := xiaomi,redmi-router-ax6000
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 112640k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_redmi-router-ax6000
+
+define Device/xiaomi_redmi-router-ax6000-stock
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Redmi Router AX6000 (stock layout)
+  DEVICE_DTS := mt7986a-xiaomi-redmi-router-ax6000-stock
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  DEVICE_PACKAGES := kmod-leds-ws2812b
+  SUPPORTED_DEVICES := xiaomi,redmi-router-ax6000-stock
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_redmi-router-ax6000-stock
 
 define Device/zyxel_ex5700
     DEVICE_VENDOR := Zyxel
