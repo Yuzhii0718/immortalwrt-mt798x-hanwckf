@@ -17,65 +17,122 @@ let callLuciBoardJSON = rpc.declare({
   expect: { '': {} }
 });
 
+let callLuciETHInfo = rpc.declare({
+  object: 'luci-rpc',
+  method: 'getETHInfo',
+  expect: { '': {} }
+});
+
 let callLuciNetworkDevices = rpc.declare({
   object: 'luci-rpc',
   method: 'getNetworkDevices',
   expect: { '': {} }
 });
 
-function getSwitchPortFlow() {
+function isLinkUp(link) {
+  return link === true || link === 1 || link === 'yes' || link === 'up' || link === 'Up' || link === '1';
+}
+
+function isFullDuplex(duplex) {
+  return duplex === true || String(duplex).toLowerCase() === 'full';
+}
+
+async function getSwitchPortFlow() {
   const portFlow = [];
-  fs.exec('/sbin/swconfig', ['dev', 'switch0', 'show']).then((res) => {
-    const lines = res.stdout.trim().split(/\n/);
-    let portNum;
-    for (let line of lines) {
-      let match = line.match(/^Port\s+(\d+):$/);
-      if (match != null) {
-        portNum = Number(match[1]);
-        portFlow[portNum] = {};
-        continue;
-      }
-      match = line.match(/^TxByte\s*:\s*(\d+)$/);
-      if (match != null) {
-        portFlow[portNum].rxflow = Number(match[1]);
-        continue;
-      }
-      match = line.match(/^RxByte\s*:\s*(\d+)$/);
-      if (match != null) {
-        portFlow[portNum].txflow = Number(match[1]);
-        continue;
-      }
+  const res = await fs.exec('/sbin/swconfig', ['dev', 'switch0', 'show']);
+  const lines = (res.stdout || '').trim().split(/\n/);
+  let portNum;
+  for (let line of lines) {
+    let match = line.match(/^Port\s+(\d+):$/);
+    if (match != null) {
+      portNum = Number(match[1]);
+      portFlow[portNum] = {};
+      continue;
     }
-  });
+    match = line.match(/^TxByte\s*:\s*(\d+)$/);
+    if (match != null) {
+      portFlow[portNum].rxflow = Number(match[1]);
+      continue;
+    }
+    match = line.match(/^RxByte\s*:\s*(\d+)$/);
+    if (match != null) {
+      portFlow[portNum].txflow = Number(match[1]);
+      continue;
+    }
+  }
   return portFlow;
 }
 
 function formatSpeed(speed) {
-  if (speed <= 0) return '-';
+  if (speed === '-' || speed == null || speed <= 0) return '-';
   const speedInt = parseInt(speed);
   if (isNaN(speedInt)) return '-';
   return speedInt < 1000 ? `${speedInt} M` : `${speedInt / 1000} GbE`;
 }
 
 function getPortColor(carrier, duplex) {
-  if (!carrier) return 'Gainsboro;';
-  if (duplex === 'full' || duplex === true) return 'greenyellow;';
-  return 'darkorange';
+  if (!isLinkUp(carrier)) return 'background-color: whitesmoke;';
+  return `background-color: ${isFullDuplex(duplex) ? 'greenyellow' : 'darkorange'};`;
 }
 
 function getPortIcon(carrier) {
-  return L.resource(`icons/port_${carrier ? 'up' : 'down'}.png`);
+  return L.resource(`icons/port_${isLinkUp(carrier) ? 'up' : 'down'}.png`);
 }
 
-function getPorts(board, netdevs, switches, portflow) {
+function getNetdev(netdevs, ifname) {
+  if (!ifname || typeof netdevs !== 'object' || netdevs == null) return null;
+
+  return netdevs[ifname] || netdevs[ifname.toLowerCase()] || netdevs[ifname.toUpperCase()] || null;
+}
+
+function pushPort(ports, name, carrier, duplex, speed, txflow, rxflow) {
+  const entry = {
+    ifname: name,
+    carrier: carrier,
+    duplex: duplex,
+    speed: speed,
+    txflow: txflow,
+    rxflow: rxflow
+  };
+
+  if (name && name.toUpperCase().startsWith('WAN')) ports.unshift(entry);
+  else ports.push(entry);
+}
+
+function getEthInfoPorts(ethinfo, netdevs) {
   const ports = [];
 
+  for (const port of ethinfo) {
+    const ifname = port.name || port.ifname || '';
+    const dev = getNetdev(netdevs, ifname);
+    const stats = dev?.stats || {};
+
+    pushPort(
+      ports,
+      ifname,
+      port.status ?? port.link ?? dev?.link?.carrier,
+      port.duplex ?? dev?.link?.duplex,
+      port.speed ?? dev?.link?.speed,
+      stats.tx_bytes ?? port.tx_bytes ?? 0,
+      stats.rx_bytes ?? port.rx_bytes ?? 0
+    );
+  }
+
+  return ports;
+}
+
+function getPorts(board, netdevs, switches, portflow, ethinfoData) {
+  const ports = [];
+
+  const ethinfo = Array.isArray(ethinfoData?.ethinfo) ? ethinfoData.ethinfo : [];
+  if (ethinfo.length > 0) return getEthInfoPorts(ethinfo, netdevs);
+
   if (Object.keys(switches).length === 0) {
-    const network = board.network;
-    const ifnames = [network?.wan?.device].concat(network?.lan?.ports);
+    const network = board?.network || {};
+    const ifnames = [network?.wan?.device].concat(network?.lan?.ports || []);
     for (const ifname of ifnames) {
-      if (ifname in netdevs === false) continue;
-      const dev = netdevs[ifname];
+      const dev = getNetdev(netdevs, ifname);
+      if (!dev) continue;
       ports.push({
         ifname: dev.name,
         carrier: dev.link.carrier,
@@ -90,8 +147,9 @@ function getPorts(board, netdevs, switches, portflow) {
 
   let wanInSwitch;
   const switch0 = switches['switch0'];
-  const lan = netdevs['br-lan'];
-  const wan = netdevs[board.network.wan.device];
+  if (!switch0 || !Array.isArray(switch0.ports)) return ports;
+  const lan = getNetdev(netdevs, 'br-lan');
+  const wan = getNetdev(netdevs, board?.network?.wan?.device);
   for (const port of switch0.ports) {
     const label = port.label.toUpperCase();
     const portstate = switch0.portstate[port.num];
@@ -159,11 +217,10 @@ function renderPorts(data) {
   const ports = [];
   getPorts(...data).forEach((port) => {
     const { carrier, duplex } = port;
-    const ifname = port.ifname.replace(' ', '');
-    const color = `background-color: ${getPortColor(carrier, duplex)};`;
+    const ifname = String(port.ifname || '').replace(/\s+/g, '');
     ports.push(
       E('div', {}, [
-        E('div', { style: css.head + color }, ifname),
+        E('div', { style: css.head + getPortColor(carrier, duplex) }, ifname),
         E('div', { style: css.body }, [
           E('img', { style: css.icon, src: getPortIcon(carrier) }),
           E('div', { style: css.speed }, formatSpeed(port.speed)),
@@ -184,20 +241,23 @@ return baseclass.extend({
   title: _('Ethernet Information'),
 
   load: function () {
+    const switchTopologies = network.getSwitchTopologies();
+
     return Promise.all([
       L.resolveDefault(callLuciBoardJSON(), {}),
       L.resolveDefault(callLuciNetworkDevices(), {}),
-      network.getSwitchTopologies().then((topologies) => {
+      switchTopologies.then(async (topologies) => {
         if (Object.keys(topologies).length === 0) return {};
-        callSwconfigPortState('switch0').then((portstate) => {
-          topologies['switch0'].portstate = portstate;
-        });
+        if (topologies['switch0']) {
+          topologies['switch0'].portstate = await L.resolveDefault(callSwconfigPortState('switch0'), []);
+        }
         return topologies;
       }),
-      network.getSwitchTopologies().then((topologies) => {
+      switchTopologies.then(async (topologies) => {
         if (Object.keys(topologies).length === 0) return [];
-        return getSwitchPortFlow();
-      })
+        return await getSwitchPortFlow();
+      }),
+      L.resolveDefault(callLuciETHInfo(), {})
     ]);
   },
 
