@@ -7,7 +7,8 @@
 include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=LuCI support for mtwifi-cfg
-LUCI_DEPENDS:=+mtwifi-cfg
+# Core scripts are required; mtwifi-wapp is optional and handled in UI/runtime.
+LUCI_DEPENDS:=+mtwifi-cfg +PACKAGE_mtwifi-wapp:mtwifi-wapp
 LUCI_PKGARCH:=all
 
 PKG_VERSION:=1

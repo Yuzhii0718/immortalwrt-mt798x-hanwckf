@@ -52,6 +52,9 @@ msgstr "启用 WAPP"
 msgid "WAPP related services (wapp/bs20)"
 msgstr "WAPP 相关服务（wapp/bs20）"
 
+msgid "Current system has no mtwifi-wapp package, so this switch cannot take effect."
+msgstr "当前系统未安装 mtwifi-wapp，此开关不会生效。"
+
 msgid "Wireless configuration error"
 msgstr "无线网络设置错误"
 

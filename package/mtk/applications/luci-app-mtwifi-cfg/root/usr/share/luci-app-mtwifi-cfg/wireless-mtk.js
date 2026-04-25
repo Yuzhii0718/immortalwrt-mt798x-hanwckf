@@ -775,8 +775,12 @@ return view.extend({
 	load: function() {
 		return Promise.all([
 			uci.changes(),
-			uci.load('wireless')
-		]);
+			uci.load('wireless'),
+			fs.stat('/sbin/startwapp.sh').then(function () { return true; }).catch(function () { return false; })
+		]).then(L.bind(function (data) {
+			this.wappPkgInstalled = data[2] === true;
+			return [data[0], data[1]];
+		}, this));
 	},
 
 	checkAnonymousSections: function() {
@@ -836,6 +840,7 @@ return view.extend({
 
 	renderOverview: function() {
 		var m, s, o;
+		var wappPkgInstalled = (this.wappPkgInstalled === true);
 
 		m = new form.Map('wireless');
 		m.chain('network');
@@ -1046,8 +1051,16 @@ return view.extend({
 
 					if (is_dbdc_main)
 					{
-						o = ss.taboption('advanced', form.Flag, 'wapp', _('Enable WAPP'), _('WAPP related services (wapp/bs20)'));
-						o.default = o.disabled;
+						if (wappPkgInstalled) {
+							o = ss.taboption('advanced', form.Flag, 'wapp', _('Enable WAPP'), _('Enable or disable WAPP related services (wapp/bs20). Default: disabled.'));
+							o.default = o.disabled;
+						}
+						else {
+							o = ss.taboption('advanced', form.Flag, 'wapp', _('Enable WAPP'), _('Enable or disable WAPP related services (wapp/bs20). Default: disabled.'));
+							o.readonly = true;
+							o.default = o.disabled;
+							o.description = _('Current system has no mtwifi-wapp package, so this switch cannot take effect.');
+						}
 
 						o = ss.taboption('advanced', form.Flag, 'whnat', _('Wireless HWNAT'));
 						o.default = o.enabled;
