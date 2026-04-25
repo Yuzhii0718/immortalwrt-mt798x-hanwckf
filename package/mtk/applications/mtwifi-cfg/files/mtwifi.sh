@@ -46,7 +46,7 @@ detect_mtwifi() {
 					set wireless.${dev}.channel=auto
 					set wireless.${dev}.txpower=100
 					set wireless.${dev}.htmode=${htmode}
-					set wireless.${dev}.country=CN
+					set wireless.${dev}.country=US
 					set wireless.${dev}.mu_beamformer=1
 					set wireless.${dev}.noscan=${htbsscoex}
 					set wireless.${dev}.wapp=0
