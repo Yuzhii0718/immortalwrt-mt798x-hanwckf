@@ -17,6 +17,7 @@
 #include <linux/reset.h>
 #include <linux/tcp.h>
 #include <linux/interrupt.h>
+#include <linux/mdio.h>
 #include <linux/pinctrl/devinfo.h>
 #include <linux/phylink.h>
 #include <net/dsa.h>
@@ -34,62 +35,12 @@
 #include "rtl822x/nic_rtl8226b_init.h"
 static struct mtk_eth *sg_eth;
 
-int mtk_mii_rw(struct mtk_eth *eth, int phy, int reg, u16 data,
-             u32 cmd, u32 st)
-{
-#define PHY_IAC                MTK_PHY_IAC
-#define PHY_ACS_ST            BIT(31)
-#define MDIO_REG_ADDR_S            25
-#define MDIO_REG_ADDR_M            0x3e000000
-#define MDIO_PHY_ADDR_S            20
-#define MDIO_PHY_ADDR_M            0x1f00000
-#define MDIO_CMD_S            18
-#define MDIO_CMD_M            0xc0000
-#define MDIO_ST_S            16
-#define MDIO_ST_M            0x30000
-#define MDIO_RW_DATA_S            0
-#define MDIO_RW_DATA_M            0xffff
-#define MDIO_CMD_ADDR            0
-#define MDIO_CMD_WRITE            1
-#define MDIO_CMD_READ            2
-#define MDIO_CMD_READ_C45        3
-#define MDIO_ST_C45 0
-#define MDIO_ST_C22 1
-    u32 val = 0;
-    int ret = 0;
-
-    if (mtk_mdio_busy_wait(eth))
-        return -1;
-
-    val = (st << MDIO_ST_S) |
-          ((cmd << MDIO_CMD_S) & MDIO_CMD_M) |
-          ((phy << MDIO_PHY_ADDR_S) & MDIO_PHY_ADDR_M) |
-          ((reg << MDIO_REG_ADDR_S) & MDIO_REG_ADDR_M);
-
-    if (cmd == MDIO_CMD_WRITE || cmd == MDIO_CMD_ADDR)
-        val |= data & MDIO_RW_DATA_M;
-
-    mtk_w32(eth, val | PHY_ACS_ST, PHY_IAC);
-
-    if (mtk_mdio_busy_wait(eth))
-        return -1;
-
-    if (cmd == MDIO_CMD_READ || cmd == MDIO_CMD_READ_C45) {
-        val = mtk_r32(eth, PHY_IAC);
-        ret = val & MDIO_RW_DATA_M;
-    }
-
-    return ret;
-}
-
 int mtk_mmd_read(struct mtk_eth *eth, int addr, int devad, u16 reg)
 {
-    int val;
+	int val;
 
     mutex_lock(&eth->mii_bus->mdio_lock);
-    mtk_mii_rw(eth, addr, devad, reg, MDIO_CMD_ADDR, MDIO_ST_C45);
-    val = mtk_mii_rw(eth, addr, devad, 0, MDIO_CMD_READ_C45,
-                MDIO_ST_C45);
+	val = _mtk_mdio_read(eth, addr, mdiobus_c45_addr(devad, reg));
     mutex_unlock(&eth->mii_bus->mdio_lock);
 
     return val;
@@ -99,10 +50,16 @@ void mtk_mmd_write(struct mtk_eth *eth, int addr, int devad, u16 reg,
               u16 val)
 {
     mutex_lock(&eth->mii_bus->mdio_lock);
-    mtk_mii_rw(eth, addr, devad, reg, MDIO_CMD_ADDR, MDIO_ST_C45);
-    mtk_mii_rw(eth, addr, devad, val, MDIO_CMD_WRITE, MDIO_ST_C45);
+	_mtk_mdio_write(eth, addr, mdiobus_c45_addr(devad, reg), val);
     mutex_unlock(&eth->mii_bus->mdio_lock);
 }
+
+struct mtk_extphy_id {
+	u32 phy_id;
+	u32 phy_id_mask;
+	bool is_c45;
+	int (*init)(struct mtk_eth *eth, int addr);
+};
 
 u32 mtk_cl45_ind_read(struct mtk_eth *eth, u16 port, u16 devad, u16 reg, u16 *data)
 {

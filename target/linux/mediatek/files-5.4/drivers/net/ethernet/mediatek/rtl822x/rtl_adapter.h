@@ -25,6 +25,11 @@
 #endif
 
 
+struct mtk_eth;
+int mtk_mmd_read(struct mtk_eth *eth, int addr, int devad, uint16_t reg);
+void mtk_mmd_write(struct mtk_eth *eth, int addr, int devad, uint16_t reg,
+		   uint16_t value);
+
 #define uint32 uint32_t
 #define uint16 uint16_t
 #define uint8 uint8_t
