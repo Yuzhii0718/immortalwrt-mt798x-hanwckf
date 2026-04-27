@@ -651,7 +651,7 @@ u32 mtk_monitor_wdma_rx(struct mtk_eth *eth)
 	struct wdma_rx_monitor *wdma_rx = &eth->reset.wdma_monitor.rx;
 	bool connsys_busy, netsys_busy;
 	u32 cur_crx, cur_drx, cur_opq, cur_fsm, max_cnt;
-	u32 i, err_flag = 0;
+	u32 i, j, err_flag = 0;
 	bool rx_en, rx_busy, crx_unchanged, drx_unchanged;
 	int rx_cnt;
 
@@ -664,12 +664,17 @@ u32 mtk_monitor_wdma_rx(struct mtk_eth *eth)
 
 		connsys_busy = netsys_busy = false;
 		crx_unchanged = drx_unchanged = true;
+		for (j = 0; j < 3; j++) {
+			cur_crx = mtk_r32(eth, MTK_WDMA_CRX_PTR(i));
+			if (cur_crx != wdma_rx->pre_crx[i])
+				crx_unchanged = false;
 
-		cur_crx = mtk_r32(eth, MTK_WDMA_CRX_PTR(i));
-		cur_drx = mtk_r32(eth, MTK_WDMA_DRX_PTR(i));
-		crx_unchanged = (cur_crx == wdma_rx->pre_crx[i]);
-		drx_unchanged = (cur_drx == wdma_rx->pre_drx[i]);
+			cur_drx = mtk_r32(eth, MTK_WDMA_DRX_PTR(i));
+			if (cur_drx != wdma_rx->pre_drx[i])
+				drx_unchanged = false;
 
+			msleep(50);
+		}
 		rx_cnt = (cur_drx > cur_crx) ? (cur_drx - 1 - cur_crx) :
 					       (cur_drx - 1 - cur_crx + max_cnt);
 		cur_opq = MTK_FE_WDMA_OQ(i);
@@ -734,17 +739,18 @@ u32 mtk_monitor_wdma_rx(struct mtk_eth *eth)
 u32 mtk_monitor_qdma_tx(struct mtk_eth *eth)
 {
 	struct qdma_tx_monitor *qdma_tx = &eth->reset.qdma_monitor.tx;
-	bool pse_fc, qfsm_hang, qfwd_hang;
+	struct gdm_tx_monitor *gdm_tx = &eth->reset.gdm_monitor.tx;
+	bool gdm_rxfc = false, qfsm_hang, qfwd_hang;
 	u32 err_flag = 0;
+	int i;
 
-	pse_fc = !!(mtk_r32(eth, MTK_FE_INT_STATUS) & BIT(PSE_QDMA_TX_PORT));
-	if (pse_fc)
-		mtk_w32(eth, BIT(PSE_QDMA_TX_PORT), MTK_FE_INT_STATUS);
+	for (i = 0; i < MTK_MAX_DEVS; i++)
+		gdm_rxfc |= gdm_tx->rxfc[i];
 
 	qfsm_hang = !!(mtk_r32(eth, MTK_QDMA_FSM) & 0xF00);
 	qfwd_hang = !mtk_r32(eth, MTK_QDMA_FWD_CNT);
 
-	if (!pse_fc && qfsm_hang && qfwd_hang) {
+	if (!gdm_rxfc && qfsm_hang && qfwd_hang) {
 		qdma_tx->hang_count++;
 		if (qdma_tx->hang_count >= 5) {
 			pr_info("QDMA Tx Info\n");
@@ -763,8 +769,6 @@ u32 mtk_monitor_qdma_tx(struct mtk_eth *eth)
 		}
 	} else
 		qdma_tx->hang_count = 0;
-
-	qdma_tx->pse_fc = pse_fc;
 
 	if (err_flag)
 		return MTK_FE_STOP_TRAFFIC;
@@ -1062,6 +1066,7 @@ u32 mtk_monitor_gdm_tx(struct mtk_eth *eth)
 
 		gmac_tx = (mtk_r32(eth, MTK_MAC_FSM(i)) & 0xFF000000) != 0x1000000;
 		if (gmac_tx && (cur_tx_cnt == gdm_tx->pre_tx_cnt[i]) &&
+		    (cur_rxfc_cnt == gdm_tx->pre_rxfc_cnt[i]) &&
 		    (cur_opq_gdm > 0)) {
 			gdm_tx->hang_count_gmac[i]++;
 			if (gdm_tx->hang_count_gmac[i] >= 5) {
@@ -1093,6 +1098,7 @@ skip_gmac:
 		} else
 			gdm_tx->hang_count_gdm[i] = 0;
 
+		gdm_tx->rxfc[i] = !!(cur_rxfc_cnt - gdm_tx->pre_rxfc_cnt[i]);
 		gdm_tx->pre_tx_cnt[i] = cur_tx_cnt;
 		gdm_tx->pre_rxfc_cnt[i] = cur_rxfc_cnt;
 		gdm_tx->pre_fsm_gdm[i] = cur_fsm_gdm;
@@ -1111,13 +1117,13 @@ skip_gmac:
 static const mtk_monitor_xdma_func mtk_reset_monitor_func[] = {
 	[0] = mtk_monitor_wdma_tx,
 	[1] = mtk_monitor_wdma_rx,
-	[2] = mtk_monitor_qdma_tx,
-	[3] = mtk_monitor_qdma_rx,
-	[4] = mtk_monitor_adma_rx,
-	[5] = mtk_monitor_tdma_tx,
-	[6] = mtk_monitor_tdma_rx,
-	[7] = mtk_monitor_gdm_tx,
-	[8] = mtk_monitor_gdm_rx,
+	[2] = mtk_monitor_adma_rx,
+	[3] = mtk_monitor_tdma_tx,
+	[4] = mtk_monitor_tdma_rx,
+	[5] = mtk_monitor_gdm_tx,
+	[6] = mtk_monitor_gdm_rx,
+	[7] = mtk_monitor_qdma_tx,
+	[8] = mtk_monitor_qdma_rx,
 };
 
 void mtk_hw_reset_monitor(struct mtk_eth *eth)

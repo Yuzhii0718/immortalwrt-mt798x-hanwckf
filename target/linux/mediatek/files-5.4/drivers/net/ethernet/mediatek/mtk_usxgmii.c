@@ -507,7 +507,7 @@ int mtk_usxgmii_link_status(struct mtk_usxgmii_pcs *mpcs)
 {
 	unsigned int val;
 
-	mutex_lock(&mpcs->reset_lock);
+	mutex_lock(&mpcs->regmap_lock);
 
 	/* Refresh USXGMII link status by toggling RG_PCS_RX_STATUS_UPDATE */
 	regmap_read(mpcs->regmap, RG_PCS_RX_STATUS0, &val);
@@ -521,7 +521,7 @@ int mtk_usxgmii_link_status(struct mtk_usxgmii_pcs *mpcs)
 	/* Read USXGMII link status */
 	regmap_read(mpcs->regmap, RG_PCS_RX_STATUS0, &val);
 
-	mutex_unlock(&mpcs->reset_lock);
+	mutex_unlock(&mpcs->regmap_lock);
 
 	return FIELD_GET(RG_PCS_RX_LINK_STATUS, val);
 }
@@ -530,13 +530,13 @@ bool mtk_usxgmii_is_valid_ctle(struct mtk_usxgmii_pcs *mpcs)
 {
 	unsigned int val, ctle;
 
-	mutex_lock(&mpcs->reset_lock);
+	mutex_lock(&mpcs->regmap_lock);
 
 	regmap_write(mpcs->regmap_pextp, 0x00, 0x00000404);
 	regmap_write(mpcs->regmap_pextp, 0x10, 0x00d600d5);
 	regmap_read(mpcs->regmap_pextp, 0xd0, &val);
 
-	mutex_unlock(&mpcs->reset_lock);
+	mutex_unlock(&mpcs->regmap_lock);
 
 	ctle = FIELD_GET(GENMASK(12, 8), val);
 	if (ctle > 10)
@@ -552,7 +552,7 @@ static void mtk_usxgmii_get_state(struct mtk_usxgmii_pcs *mpcs)
 	struct mtk_mac *mac = eth->mac[mtk_xgmii2mac_id(eth, mpcs->id)];
 	u32 val = 0;
 
-	mutex_lock(&mpcs->reset_lock);
+	mutex_lock(&mpcs->regmap_lock);
 
 	regmap_read(mpcs->regmap, RG_PCS_AN_CTRL0, &val);
 	if (FIELD_GET(USXGMII_AN_ENABLE, val)) {
@@ -614,19 +614,20 @@ static void mtk_usxgmii_get_state(struct mtk_usxgmii_pcs *mpcs)
 		state->duplex = DUPLEX_FULL;
 	}
 
-	mutex_unlock(&mpcs->reset_lock);
+	mutex_unlock(&mpcs->regmap_lock);
 }
 
 void mtk_usxgmii_reset(struct mtk_usxgmii_pcs *mpcs)
 {
 	struct mtk_eth *eth = mpcs->eth;
+	struct mtk_usxgmii *ss = eth->usxgmii;
 	int id = mpcs->id;
 	u32 val = 0;
 
 	if (id >= MTK_MAX_DEVS || !eth->toprgu)
 		return;
 
-	mutex_lock(&mpcs->reset_lock);
+	mutex_lock(&ss->toprgu_lock);
 
 	switch (id) {
 	case 0:
@@ -689,7 +690,7 @@ void mtk_usxgmii_reset(struct mtk_usxgmii_pcs *mpcs)
 		break;
 	}
 
-	mutex_unlock(&mpcs->reset_lock);
+	mutex_unlock(&ss->toprgu_lock);
 
 	usleep_range(10000, 11000);
 }
@@ -734,10 +735,10 @@ static int mtk_usxgmii_pcs_config(struct phylink_pcs *pcs, unsigned int mode,
 
 	adapt_mode |= FIELD_PREP(USXGMII_RATE_ADAPT_MODE, USXGMII_RATE_ADAPT_MODE_X1);
 
+	mutex_lock(&mpcs->regmap_lock);
+
 	mtk_usxgmii_xfi_pll_enable(eth->usxgmii);
 	mtk_usxgmii_reset(mpcs);
-
-	mutex_lock(&mpcs->regmap_lock);
 
 	if (mode <= MLO_AN_INBAND && mpcs->interface != interface) {
 		mpcs->interface = interface;
@@ -876,9 +877,11 @@ void mtk_usxgmii_pcs_restart_an(struct phylink_pcs *pcs)
 	if (!mpcs->regmap)
 		return;
 
+	mutex_lock(&mpcs->regmap_lock);
 	regmap_read(mpcs->regmap, RG_PCS_AN_CTRL0, &val);
 	val |= USXGMII_AN_RESTART;
 	regmap_write(mpcs->regmap, RG_PCS_AN_CTRL0, val);
+	mutex_unlock(&mpcs->regmap_lock);
 }
 
 static void mtk_usxgmii_pcs_link_up(struct phylink_pcs *pcs, unsigned int mode,
@@ -947,10 +950,11 @@ int mtk_usxgmii_init(struct mtk_eth *eth, struct device_node *r)
 		INIT_DELAYED_WORK(&ss->pcs[i].link_poll, mtk_usxgmii_pcs_link_poll);
 
 		mutex_init(&ss->pcs[i].regmap_lock);
-		mutex_init(&ss->pcs[i].reset_lock);
 
 		of_node_put(np);
 	}
+
+	mutex_init(&ss->toprgu_lock);
 
 	ret = mtk_usxgmii_xfi_pextp_init(ss, r);
 	if (ret)

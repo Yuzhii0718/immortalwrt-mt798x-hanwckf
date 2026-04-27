@@ -19,6 +19,7 @@
 
 #define MTK_QDMA_PAGE_SIZE	2048
 #define	MTK_MAX_RX_LENGTH	1536
+#define MTK_MAX_RX_LENGTH_UNIT	1024
 #define MTK_MAX_RX_LENGTH_2K	2048
 #define MTK_MAX_RX_LENGTH_9K	9216
 #define MTK_MIN_TX_LENGTH	60
@@ -336,6 +337,8 @@
 #define MTK_CTRL_DW0_SDL_OFFSET		(3)
 #define MTK_CTRL_DW0_SDL_MASK		BITS(3, 18)
 
+#define MTK_LRO_VLAN_EN			(0xf << 8)
+#define MTK_LRO_VLAN_VID_CMP_DEPTH	(0x3 << 12)
 #define MTK_ADMA_MODE			BIT(15)
 #define MTK_LRO_MIN_RXD_SDL		(MTK_HW_LRO_SDL_REMAIN_ROOM << 16)
 
@@ -521,6 +524,7 @@
 
 /* QDMA V2 Global Configuration Register */
 #define MTK_CHK_DDONE_EN	BIT(28)
+#define MTK_PKT_RX_WDONE	BIT(27)
 #define MTK_DMAD_WR_WDONE	BIT(26)
 #define MTK_WCOMP_EN		BIT(24)
 #define MTK_RESV_BUF		(0x80 << 16)
@@ -853,7 +857,8 @@
 
 /* Mac control registers */
 #define MTK_MAC_MCR(x)		(0x10100 + (x * 0x100))
-#define MAC_MCR_MAX_RX_JUMBO	FIELD_PREP(GENMASK(31, 28), 2)
+#define MAC_MCR_MAX_RX_JUMBO_MASK	GENMASK(31, 28)
+#define MAC_MCR_MAX_RX_JUMBO(x)	FIELD_PREP(MAC_MCR_MAX_RX_JUMBO_MASK, (x))
 #define MAC_MCR_MAX_RX_MASK	GENMASK(25, 24)
 #define MAC_MCR_MAX_RX(_x)	(MAC_MCR_MAX_RX_MASK & ((_x) << 24))
 #define MAC_MCR_MAX_RX_1518	0x0
@@ -2143,7 +2148,6 @@ struct mtk_usxgmii_pcs {
 	struct regmap		*regmap;
 	struct regmap		*regmap_pextp;
 	struct mutex		regmap_lock;
-	struct mutex		reset_lock;
 	phy_interface_t		interface;
 	bool			link_poll_enable;
 	unsigned long		link_poll_expire;
@@ -2163,6 +2167,7 @@ struct mtk_usxgmii_pcs {
  */
 struct mtk_usxgmii {
 	struct mtk_usxgmii_pcs	pcs[MTK_MAX_DEVS];
+	struct mutex		toprgu_lock;
 	struct regmap		*pll;
 };
 
@@ -2200,7 +2205,6 @@ struct adma_monitor {
 
 struct qdma_monitor {
 	struct qdma_tx_monitor {
-		bool		pse_fc;
 		u8		hang_count;
 	} tx;
 	struct qdma_rx_monitor {
@@ -2245,6 +2249,7 @@ struct wdma_monitor {
 
 struct gdm_monitor {
 	struct gdm_tx_monitor {
+		bool		rxfc[MTK_MAX_DEVS];
 		u64		pre_tx_cnt[MTK_MAX_DEVS];
 		u32		pre_rxfc_cnt[MTK_MAX_DEVS];
 		u32		pre_fsm_gdm[MTK_MAX_DEVS];
@@ -2333,6 +2338,7 @@ struct mtk_eth {
 	struct clk			*clks[MTK_CLK_MAX];
 
 	struct mii_bus			*mii_bus;
+	unsigned int			mdc_divider;
 	struct work_struct		pending_work;
 	unsigned long			state;
 
@@ -2398,12 +2404,14 @@ struct mtk_mac {
 	unsigned int			ptp_tx_class;
 };
 
-/* struct mtk_mux_data -	the structure that holds the private data about the
+#define MTK_MUX_CHANNELS_MAX	2
+
+/* struct mtk_mux_channel -	the structure that holds the private data about the
  *			 Passive MUXs of the SoC
  */
-struct mtk_mux_data {
-	struct device_node		*of_node;
-	struct phylink			*phylink;
+struct mtk_mux_channel {
+	struct device_node *of_node;
+	phy_interface_t phy_mode;
 };
 
 /* struct mtk_mux -	the structure that holds the info about the Passive MUXs of the
@@ -2413,10 +2421,10 @@ struct mtk_mux {
 	struct delayed_work		poll;
 	struct gpio_desc		*mod_def0_gpio;
 	struct gpio_desc		*chan_sel_gpio;
-	struct mtk_mux_data		*data[2];
+	struct mtk_mux_channel		channels[MTK_MUX_CHANNELS_MAX];
 	struct mtk_mac			*mac;
-	unsigned int			channel;
-	unsigned int			sfp_present_channel;
+	unsigned int			active_channel;
+	unsigned int			sfp_connected_channel;
 };
 
 /* the struct describing the SoC. these are declared in the soc_xyz.c files */

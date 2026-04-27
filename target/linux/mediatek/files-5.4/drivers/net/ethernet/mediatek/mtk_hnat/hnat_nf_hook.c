@@ -27,6 +27,7 @@
 #include <net/netfilter/nf_conntrack_acct.h>
 
 #include "nf_hnat_mtk.h"
+#include "hnat_api.h"
 #include "hnat.h"
 
 #include "../mtk_eth_soc.h"
@@ -453,16 +454,13 @@ void foe_clear_crypto_entry(u32 cdrt_idx)
 }
 EXPORT_SYMBOL(foe_clear_crypto_entry);
 
-void foe_clear_entry(struct neighbour *neigh)
+void foe_clear_entry(struct list_head *head)
 {
-	u32 *daddr = (u32 *)neigh->primary_key;
-	unsigned char h_dest[ETH_ALEN];
+	struct hnat_neigh_update_event *neigh;
 	struct foe_entry *entry;
 	int i, hash_index;
 	int cnt;
-	u32 dip;
-
-	dip = (u32)(*daddr);
+	bool is_ipv4, dip_match, dmac_match;
 
 	for (i = 0; i < CFG_PPE_NUM; i++) {
 		if (!hnat_priv->foe_table_cpu[i])
@@ -470,32 +468,36 @@ void foe_clear_entry(struct neighbour *neigh)
 		cnt = 0;
 		for (hash_index = 0; hash_index < hnat_priv->foe_etry_num; hash_index++) {
 			entry = hnat_priv->foe_table_cpu[i] + hash_index;
-			if (entry->bfib1.state == BIND &&
-			    entry->ipv4_hnapt.new_dip == ntohl(dip) &&
-			    IS_IPV4_HNAPT(entry)) {
-				*((u32 *)h_dest) = swab32(entry->ipv4_hnapt.dmac_hi);
-				*((u16 *)&h_dest[4]) =
-					swab16(entry->ipv4_hnapt.dmac_lo);
-				if (strncmp(h_dest, neigh->ha, ETH_ALEN) == 0)
-					continue;
+			if (entry->bfib1.state != BIND)
+				continue;
 
-				cr_set_field(hnat_priv->ppe_base[i] + PPE_TB_CFG,
-					     SMA, SMA_ONLY_FWD_CPU);
+			list_for_each_entry(neigh, head, list) {
+				is_ipv4 = (neigh->tbl_family == AF_INET);
+				dip_match = entry_ip_cmp(entry, is_ipv4, &neigh->dip,
+							 ENTRY_CMP_DST);
+				if (!dip_match)
+					continue;
+				dmac_match = entry_mac_cmp(entry, neigh->ha, ENTRY_CMP_DST);
+				/* Delete entry if nud_state is NUD_FAILED or DMAC not match */
+				if (!((neigh->nud_state & NUD_FAILED) || !dmac_match))
+					continue;
 
 				spin_lock_bh(&hnat_priv->entry_lock);
 				__entry_delete(entry);
 				spin_unlock_bh(&hnat_priv->entry_lock);
 
-				mod_timer(&hnat_priv->hnat_sma_build_entry_timer,
-					  jiffies + 3 * HZ);
-				if (debug_level >= 2) {
-					pr_info("%s: state=%d\n", __func__,
-						neigh->nud_state);
-					pr_info("Delete old entry: dip =%pI4\n", &dip);
-					pr_info("Old mac= %pM\n", h_dest);
-					pr_info("New mac= %pM\n", neigh->ha);
+				if (debug_level >= 7) {
+					pr_info("%s: state=%d, New mac= %pM\n",
+						__func__, neigh->nud_state, neigh->ha);
+					if (is_ipv4)
+						pr_info("Delete old entry: dip =%pI4\n",
+							&neigh->dip);
+					else
+						pr_info("Delete old entry: dip =%pI6\n",
+							&neigh->dip6);
 				}
 				cnt++;
+				break;
 			}
 		}
 		/* clear HWNAT cache */
@@ -504,21 +506,127 @@ void foe_clear_entry(struct neighbour *neigh)
 	}
 }
 
+void hnat_neigh_update_init(void)
+{
+	INIT_DELAYED_WORK(&hnat_priv->neigh_update.work, hnat_neigh_update_work_handler);
+	INIT_LIST_HEAD(&hnat_priv->neigh_update.head);
+	spin_lock_init(&hnat_priv->neigh_update.lock);
+
+	spin_lock_bh(&hnat_priv->neigh_update.lock);
+	hnat_priv->neigh_update.pending_cnt = 0;
+	spin_unlock_bh(&hnat_priv->neigh_update.lock);
+}
+
+void hnat_neigh_update_cleanup(void)
+{
+	struct hnat_neigh_update_event *entry, *tmp;
+	int is_pending;
+
+	 /* Take lock first to prevent new entries */
+	spin_lock_bh(&hnat_priv->neigh_update.lock);
+
+	/* Check if work is pending while holding lock */
+	is_pending = delayed_work_pending(&hnat_priv->neigh_update.work);
+
+	/* Clear the list */
+	list_for_each_entry_safe(entry, tmp, &hnat_priv->neigh_update.head, list) {
+		list_del(&entry->list);
+		kfree(entry);
+	}
+	hnat_priv->neigh_update.pending_cnt = 0;
+	spin_unlock_bh(&hnat_priv->neigh_update.lock);
+
+	/* Cancel work after clearing list */
+	if (is_pending)
+		cancel_delayed_work_sync(&hnat_priv->neigh_update.work);
+}
+
+void hnat_neigh_update_work_handler(struct work_struct *work)
+{
+	struct hnat_neigh_update_event *entry, *tmp;
+	LIST_HEAD(local_list);
+	int processed = 0;
+
+	spin_lock_bh(&hnat_priv->neigh_update.lock);
+	/* move the list to local_list */
+	/* Process only a limited number of entries at once */
+	list_for_each_entry_safe(entry, tmp, &hnat_priv->neigh_update.head, list) {
+		/* Batch processing budget, default 128 */
+		if (processed >= NEIGH_PROCESS_BUDGET)
+			break;
+		list_move_tail(&entry->list, &local_list);
+		processed++;
+	}
+	hnat_priv->neigh_update.pending_cnt -= processed;
+	spin_unlock_bh(&hnat_priv->neigh_update.lock);
+
+	if (!list_empty(&local_list))
+		foe_clear_entry(&local_list);
+
+	list_for_each_entry_safe(entry, tmp, &local_list, list) {
+		list_del(&entry->list);
+		kfree(entry);
+	}
+
+	/* reschedule if new update event added during handling */
+	spin_lock_bh(&hnat_priv->neigh_update.lock);
+	if (!list_empty(&hnat_priv->neigh_update.head))
+		schedule_delayed_work(&hnat_priv->neigh_update.work,
+				      msecs_to_jiffies(NEIGH_UPDATE_WORK_DELAY_MS));
+	spin_unlock_bh(&hnat_priv->neigh_update.lock);
+}
+
 int nf_hnat_netevent_handler(struct notifier_block *unused, unsigned long event,
 			     void *ptr)
 {
 	struct net_device *dev = NULL;
 	struct neighbour *neigh = NULL;
+	struct hnat_neigh_update_event *entry;
+	u32 pending_max;
 
 	switch (event) {
 	case NETEVENT_NEIGH_UPDATE:
 		neigh = ptr;
 		dev = neigh->dev;
-		if (dev)
-			foe_clear_entry(neigh);
-		break;
+		if (!dev || !(neigh->nud_state & (NUD_CONNECTED | NUD_FAILED)))
+			return NOTIFY_DONE;
+
+		/* gc_thresh3 is the hard limit for the number of ARP/ND entries
+		 * (default is 1024). We multiply it by 2 to provide a safety buffer
+		 * for handling event bursts.
+		 */
+		pending_max = max(4096, (arp_tbl.gc_thresh3 + nd_tbl.gc_thresh3) * 2);
+
+		spin_lock_bh(&hnat_priv->neigh_update.lock);
+
+		if (hnat_priv->neigh_update.pending_cnt >= pending_max)
+			goto unlock_out;
+
+		entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
+		if (!entry)
+			goto unlock_out;
+
+		memcpy(entry->ha, neigh->ha, ETH_ALEN);
+		if (neigh->tbl->family == AF_INET)
+			memcpy(&entry->dip, neigh->primary_key, neigh->tbl->key_len);
+		else
+			memcpy(&entry->dip6, neigh->primary_key, neigh->tbl->key_len);
+		entry->nud_state = neigh->nud_state;
+		entry->tbl_family = neigh->tbl->family;
+
+		list_add_tail(&entry->list, &hnat_priv->neigh_update.head);
+		hnat_priv->neigh_update.pending_cnt++;
+
+		if (!delayed_work_pending(&hnat_priv->neigh_update.work))
+			schedule_delayed_work(&hnat_priv->neigh_update.work,
+					      msecs_to_jiffies(NEIGH_UPDATE_WORK_DELAY_MS));
+
+		goto unlock_out;
 	}
 
+	return NOTIFY_DONE;
+unlock_out:
+	spin_unlock_bh(&hnat_priv->neigh_update.lock);
 	return NOTIFY_DONE;
 }
 
@@ -1431,6 +1539,38 @@ static u16 ppe_get_chkbase(struct iphdr *iph)
 	return chksum_base;
 }
 
+static int hnat_add_vlan_layer(struct foe_entry *entry, u16 vlan_tci, bool outer)
+{
+	if (entry->bfib1.vlan_layer >= 2)
+		return -EINVAL;
+
+	if (IS_IPV4_GRP(entry) || IS_L2_BRIDGE(entry)) {
+		if (outer) {
+			/* if the vlan is outer layer, insert it into vlan1 field */
+			entry->ipv4_hnapt.vlan2 = entry->ipv4_hnapt.vlan1;
+			entry->ipv4_hnapt.vlan1 = vlan_tci;
+		} else if (entry->bfib1.vlan_layer == 0) {
+			entry->ipv4_hnapt.vlan1 = vlan_tci;
+		} else if (entry->bfib1.vlan_layer == 1) {
+			entry->ipv4_hnapt.vlan2 = vlan_tci;
+		}
+	} else {
+		if (outer) {
+			/* if the vlan is outer layer, insert it into vlan1 field */
+			entry->ipv6_5t_route.vlan2 = entry->ipv6_5t_route.vlan1;
+			entry->ipv6_5t_route.vlan1 = vlan_tci;
+		} else if (entry->bfib1.vlan_layer == 0) {
+			entry->ipv6_5t_route.vlan1 = vlan_tci;
+		} else if (entry->bfib1.vlan_layer == 1) {
+			entry->ipv6_5t_route.vlan2 = vlan_tci;
+		}
+	}
+
+	entry->bfib1.vlan_layer++;
+
+	return 0;
+}
+
 struct foe_entry ppe_fill_L2_info(struct foe_entry entry,
 				  struct flow_offload_hw_path *hw_path)
 {
@@ -1466,8 +1606,31 @@ struct foe_entry ppe_fill_L2_info(struct foe_entry entry,
 	return entry;
 }
 
-struct foe_entry ppe_fill_info_blk(struct foe_entry entry,
-				   struct flow_offload_hw_path *hw_path)
+static bool hnat_is_hw_path_bridging(struct flow_offload_hw_path *hw_path)
+{
+	struct net_device *dev = hw_path->virt_dev;
+	struct net_device *br_dev;
+	bool ret = false;
+
+	/* Only check for devices that are bridge slave ports */
+	if (dev && netif_is_bridge_port(dev)) {
+		rcu_read_lock_bh();
+		/* Verify the upper device is indeed a bridge master */
+		br_dev = netdev_master_upper_dev_get_rcu(dev);
+		if (br_dev && netif_is_bridge_master(br_dev)) {
+			/* Not from the bridge master nor the port itself -> bridged frame */
+			if (!ether_addr_equal(hw_path->eth_src, br_dev->dev_addr) &&
+			    !ether_addr_equal(hw_path->eth_src, dev->dev_addr))
+				ret = true;
+		}
+		rcu_read_unlock_bh();
+	}
+
+	return ret;
+}
+
+static struct foe_entry ppe_fill_info_blk(struct foe_entry entry,
+					  struct flow_offload_hw_path *hw_path)
 {
 	entry.bfib1.psn = (hw_path->flags & BIT(DEV_PATH_PPPOE)) ? 1 : 0;
 	entry.bfib1.vlan_layer += (hw_path->flags & BIT(DEV_PATH_VLAN)) ? 1 : 0;
@@ -1475,7 +1638,8 @@ struct foe_entry ppe_fill_info_blk(struct foe_entry entry,
 	entry.bfib1.vpm = 0;
 	entry.bfib1.cah = 1;
 	entry.bfib1.sta = 0;
-	entry.bfib1.ttl = 1;
+	/* TTL should not be decremented in bridge layer forward */
+	entry.bfib1.ttl = hnat_is_hw_path_bridging(hw_path) ? 0 : 1;
 
 	switch ((int)entry.bfib1.pkt_type) {
 	case L2_BRIDGE:
@@ -1544,6 +1708,10 @@ static inline void hnat_get_filled_unbind_entry(struct sk_buff *skb,
 						struct foe_entry *entry)
 {
 	if (unlikely(!skb || !entry))
+		return;
+
+	if (skb_hnat_entry(skb) >= hnat_priv->foe_etry_num ||
+	    skb_hnat_ppe(skb) >= CFG_PPE_NUM)
 		return;
 
 	memcpy(entry,
@@ -1890,8 +2058,7 @@ hnat_skip_fill_inner:
 
 	if (IS_IPV4_GRP(&entry)) {
 		entry.ipv4_hnapt.iblk2.dp = gmac;
-		entry.ipv4_hnapt.iblk2.port_mg =
-			(hnat_priv->data->version == MTK_HNAT_V1_1) ? 0x3f : 0;
+		entry.ipv4_hnapt.iblk2.port_mg = 0;
 		entry.bfib1.ttl = 1;
 		entry.bfib1.state = BIND;
 
@@ -1905,8 +2072,7 @@ hnat_skip_fill_inner:
 		entry.ipv4_hnapt.pppoe_id = hw_path.pppoe_sid;
 	} else {
 		entry.ipv6_5t_route.iblk2.dp = gmac;
-		entry.ipv6_5t_route.iblk2.port_mg =
-			(hnat_priv->data->version == MTK_HNAT_V1_1) ? 0x3f : 0;
+		entry.ipv6_5t_route.iblk2.port_mg = 0;
 		entry.bfib1.ttl = 1;
 		entry.bfib1.state = BIND;
 		if (!skb_hnat_tops(skb)) {
@@ -2759,6 +2925,9 @@ hnat_entry_bind:
 	hnat_foe_entry_commit(foe, &entry, BIND);
 	spin_unlock_bh(&hnat_priv->entry_lock);
 
+	if (hnat_bind_callback && IS_HNAT_API_SUPPORTED(&entry))
+		hnat_trigger_callback(hnat_bind_callback, skb);
+
 	/* reset statistic for this entry */
 	if (hnat_priv->data->per_flow_accounting &&
 	    skb_hnat_entry(skb) < hnat_priv->foe_etry_num &&
@@ -2766,12 +2935,8 @@ hnat_entry_bind:
 		memset(&hnat_priv->acct[skb_hnat_ppe(skb)][skb_hnat_entry(skb)],
 		       0, sizeof(struct hnat_accounting));
 		ct = nf_ct_get(skb, &ctinfo);
-		if (ct) {
-			hnat_priv->acct[skb_hnat_ppe(skb)][skb_hnat_entry(skb)].zone =
-				ct->zone;
-			hnat_priv->acct[skb_hnat_ppe(skb)][skb_hnat_entry(skb)].dir =
-				CTINFO2DIR(ctinfo);
-		}
+		if (ct)
+			hnat_priv->acct[skb_hnat_ppe(skb)][skb_hnat_entry(skb)].zone = ct->zone;
 	}
 
 	return 0;
@@ -2781,9 +2946,11 @@ int mtk_sw_nat_hook_tx(struct sk_buff *skb, int gmac_no)
 {
 	struct foe_entry *hw_entry, entry;
 	struct hnat_flow_entry *flow_entry;
+	struct vlan_hdr *vhdr;
 	struct ethhdr *eth;
 	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
+	u16 h_proto, h_offset = 0;
 
 	if (!skb_hnat_is_hashed(skb) || skb_hnat_ppe(skb) >= CFG_PPE_NUM)
 		return NF_ACCEPT;
@@ -2873,17 +3040,37 @@ int mtk_sw_nat_hook_tx(struct sk_buff *skb, int gmac_no)
 		break;
 	}
 
-	if (skb_vlan_tagged(skb)) {
-		entry.bfib1.vlan_layer = 1;
-		if (IS_IPV4_GRP(&entry) || IS_L2_BRIDGE(&entry)) {
-			entry.ipv4_hnapt.sp_tag = ETH_P_8021Q;
-			entry.ipv4_hnapt.vlan1 = skb->vlan_tci;
-		} else if (IS_IPV6_GRP(&entry)) {
-			entry.ipv6_5t_route.sp_tag = ETH_P_8021Q;
-			entry.ipv6_5t_route.vlan1 = skb->vlan_tci;
+	entry.bfib1.vlan_layer = 0;
+
+	if (skb_vlan_tag_present(skb)) {
+		if (skb->vlan_proto != htons(ETH_P_8021Q))
+			return NF_ACCEPT;
+
+		if (hnat_add_vlan_layer(&entry, skb->vlan_tci, false))
+			return NF_ACCEPT;
+	}
+
+	h_proto = skb->protocol;
+	while (h_proto == htons(ETH_P_8021Q)) {
+		vhdr = (struct vlan_hdr *)(skb_mac_header(skb) + ETH_HLEN + h_offset);
+		if (hnat_add_vlan_layer(&entry, ntohs(vhdr->h_vlan_TCI), false)) {
+			if (debug_level >= 7)
+				printk_ratelimited(KERN_WARNING
+						   "Unsupported PPE VLAN layer%d in WiFiTx\n",
+						   entry.bfib1.vlan_layer + 1);
+			return NF_ACCEPT;
 		}
-	} else {
-		entry.bfib1.vlan_layer = 0;
+		h_proto = vhdr->h_vlan_encapsulated_proto;
+		h_offset += VLAN_HLEN;
+	}
+
+	if (entry.bfib1.vlan_layer) {
+		if (IS_IPV4_GRP(&entry) || IS_L2_BRIDGE(&entry))
+			entry.ipv4_hnapt.sp_tag = ETH_P_8021Q;
+		else if (IS_IPV6_GRP(&entry))
+			entry.ipv6_5t_route.sp_tag = ETH_P_8021Q;
+		else
+			return NF_ACCEPT;
 	}
 
 	/* MT7622 wifi hw_nat not support QoS */
@@ -3083,16 +3270,16 @@ int mtk_sw_nat_hook_tx(struct sk_buff *skb, int gmac_no)
 	hnat_foe_entry_commit(hw_entry, &entry, BIND);
 	spin_unlock_bh(&hnat_priv->entry_lock);
 
+	if (hnat_bind_callback && IS_HNAT_API_SUPPORTED(&entry))
+		hnat_trigger_callback(hnat_bind_callback, skb);
+
 	/* reset statistic for this entry */
 	if (hnat_priv->data->per_flow_accounting) {
 		memset(&hnat_priv->acct[skb_hnat_ppe(skb)][skb_hnat_entry(skb)],
 			0, sizeof(struct hnat_accounting));
 		ct = nf_ct_get(skb, &ctinfo);
-		if (ct) {
+		if (ct)
 			hnat_priv->acct[skb_hnat_ppe(skb)][skb_hnat_entry(skb)].zone = ct->zone;
-			hnat_priv->acct[skb_hnat_ppe(skb)][skb_hnat_entry(skb)].dir =
-										CTINFO2DIR(ctinfo);
-		}
 	}
 
 #if defined(CONFIG_MEDIATEK_NETSYS_V3)
@@ -3650,6 +3837,11 @@ static unsigned int mtk_hnat_nf_post_routing(
 	entry = &hnat_priv->foe_table_cpu[skb_hnat_ppe(skb)][skb_hnat_entry(skb)];
 
 	switch (skb_hnat_reason(skb)) {
+	case TCP_FIN_SYN_RST:
+		if (hnat_fin_callback && entry->bfib1.state == FIN &&
+		    IS_HNAT_API_SUPPORTED(entry))
+			hnat_trigger_callback(hnat_fin_callback, skb);
+		break;
 	case HIT_UNBIND_RATE_REACH:
 		if (entry_hnat_is_bound(entry))
 			break;
@@ -4098,11 +4290,19 @@ int mtk_hqos_ptype_cb(struct sk_buff *skb, struct net_device *dev,
 
 int mtk_hnat_skb_headroom_copy(struct sk_buff *new, struct sk_buff *old)
 {
-	if (skb_headroom(new) < skb_headroom(old))
-		return -EPERM;
+	if (skb_cow_head(new, skb_headroom(old)))
+		return -ENOMEM;
 
-	if (skb_hnat_reason(old) == HIT_UNBIND_RATE_REACH && skb_hnat_tops(old))
+	if (skb_hnat_reason(old) == HIT_UNBIND_RATE_REACH && skb_hnat_tops(old)) {
 		memcpy(new->head, old->head, skb_headroom(old));
+		return 0;
+	}
+
+	if (old->inner_protocol == IPPROTO_ESP &&
+		skb_hnat_cdrt(old) && is_magic_tag_valid(old)) {
+		memcpy(new->head, old->head, skb_headroom(old));
+		new->inner_protocol = IPPROTO_ESP;
+	}
 
 	return 0;
 }

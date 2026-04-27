@@ -330,8 +330,7 @@
 		reg_val |= FIELD_PREP(MTK_GLO_MEM_CMD, MTK_GLO_MEM_READ);		\
 		mtk_w32(eth, reg_val, MTK_GLO_MEM_CTRL);				\
 		reg_val = mtk_r32(eth, MTK_GLO_MEM_DATA(1));				\
-		reg_val &= ~MTK_RING_OPMODE;						\
-		reg_val |= FIELD_PREP(MTK_RING_OPMODE, y);				\
+		reg_val |= FIELD_PREP(MTK_LRO_DATA_VLD, y);				\
 		mtk_w32(eth, reg_val, MTK_GLO_MEM_DATA(1));				\
 		reg_val = FIELD_PREP(MTK_GLO_MEM_IDX, MTK_LRO_MEM_IDX);			\
 		reg_val |= FIELD_PREP(MTK_GLO_MEM_ADDR, MTK_LRO_MEM_CFG_BASE + x);	\

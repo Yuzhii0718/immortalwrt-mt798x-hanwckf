@@ -610,7 +610,8 @@ static void mtk_set_mcr_max_rx(struct mtk_mac *mac, u32 val)
 
 	if (mac->type == MTK_GDM_TYPE) {
 		mcr_cur = mtk_r32(mac->hw, MTK_MAC_MCR(mac->id));
-		mcr_new = mcr_cur & ~MAC_MCR_MAX_RX_MASK;
+		mcr_new = mcr_cur & ~(MAC_MCR_MAX_RX_MASK |
+				      MAC_MCR_MAX_RX_JUMBO_MASK);
 
 		if (val <= 1518)
 			mcr_new |= MAC_MCR_MAX_RX(MAC_MCR_MAX_RX_1518);
@@ -620,7 +621,8 @@ static void mtk_set_mcr_max_rx(struct mtk_mac *mac, u32 val)
 			mcr_new |= MAC_MCR_MAX_RX(MAC_MCR_MAX_RX_1552);
 		else {
 			mcr_new |= MAC_MCR_MAX_RX(MAC_MCR_MAX_RX_2048);
-			mcr_new |= MAC_MCR_MAX_RX_JUMBO;
+			mcr_new |= MAC_MCR_MAX_RX_JUMBO(DIV_ROUND_UP(val,
+							MTK_MAX_RX_LENGTH_UNIT));
 		}
 
 		if (mcr_new != mcr_cur)
@@ -1514,64 +1516,28 @@ static const struct phylink_mac_ops mtk_phylink_ops = {
 	.mac_link_up = mtk_mac_link_up,
 };
 
-static int mtk_mdc_init(struct mtk_eth *eth)
+static void mtk_mdio_config(struct mtk_eth *eth)
 {
-	struct device_node *mii_np;
-	int max_clk = 2500000, divider;
-	int ret = 0;
 	u32 val;
 
-	mii_np = of_get_child_by_name(eth->dev->of_node, "mdio-bus");
-	if (!mii_np) {
-		dev_err(eth->dev, "no %s child node found", "mdio-bus");
-		return -ENODEV;
-	}
-
-	if (!of_device_is_available(mii_np)) {
-		ret = -ENODEV;
-		goto err_put_node;
-	}
-
-	if (!of_property_read_u32(mii_np, "clock-frequency", &val)) {
-		if (val > MDC_MAX_FREQ ||
-		    val < MDC_MAX_FREQ / MDC_MAX_DIVIDER) {
-			dev_err(eth->dev, "MDIO clock frequency out of range");
-			ret = -EINVAL;
-			goto err_put_node;
-		}
-		max_clk = val;
-	}
-
-	divider = min_t(unsigned int, DIV_ROUND_UP(MDC_MAX_FREQ, max_clk), 63);
+	/* Configure MDC Divider */
+	val = FIELD_PREP(PPSC_MDC_CFG, eth->mdc_divider);
 
 	/* Configure MDC Turbo Mode */
-	if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V3)) {
-		val = mtk_r32(eth, MTK_MAC_MISC);
-		val |= MISC_MDC_TURBO;
-		mtk_w32(eth, val, MTK_MAC_MISC);
-	} else {
-		val = mtk_r32(eth, MTK_PPSC);
-		val |= PPSC_MDC_TURBO;
-		mtk_w32(eth, val, MTK_PPSC);
-	}
+	if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V3))
+		mtk_m32(eth, 0, MISC_MDC_TURBO, MTK_MAC_MISC);
+	else
+		mtk_m32(eth, 0, PPSC_MDC_TURBO, MTK_PPSC);
 
-	/* Configure MDC Divider */
-	val = mtk_r32(eth, MTK_PPSC);
-	val &= ~PPSC_MDC_CFG;
-	val |= FIELD_PREP(PPSC_MDC_CFG, divider);
-	mtk_w32(eth, val, MTK_PPSC);
-
-	dev_info(eth->dev, "MDC is running on %d Hz\n", MDC_MAX_FREQ / divider);
-
-err_put_node:
-	of_node_put(mii_np);
-	return ret;
+	mtk_m32(eth, PPSC_MDC_CFG, val, MTK_PPSC);
 }
 
 static int mtk_mdio_init(struct mtk_eth *eth)
 {
+	unsigned int max_clk = 2500000, min_clk, divider, output;
 	struct device_node *mii_np;
 	int ret;
+	u32 val;
 
 	mii_np = of_get_child_by_name(eth->dev->of_node, "mdio-bus");
 	if (!mii_np) {
@@ -1602,6 +1568,35 @@ static int mtk_mdio_init(struct mtk_eth *eth)
 		goto err_put_node;
 	}
 
+	if (!of_property_read_u32(mii_np, "clock-frequency", &val)) {
+		if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V3) &&
+		    (eth->soc->caps != MT7988_CAPS))
+			min_clk = (2 * MDC_MAX_FREQ) / (MDC_MAX_DIVIDER + 1);
+		else
+			min_clk = MDC_MAX_FREQ / MDC_MAX_DIVIDER;
+
+		if (val > MDC_MAX_FREQ || val < min_clk) {
+			dev_err(eth->dev, "MDIO clock frequency out of range");
+			ret = -EINVAL;
+			goto err_put_node;
+		}
+		max_clk = val;
+	}
+
+	if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V3) &&
+	    (eth->soc->caps != MT7988_CAPS)) {
+		divider = min_t(unsigned int,
+				DIV_ROUND_UP(2 * MDC_MAX_FREQ, max_clk) - 1, 63);
+		output = (2 * MDC_MAX_FREQ) / (divider + 1);
+	} else {
+		divider = min_t(unsigned int,
+				DIV_ROUND_UP(MDC_MAX_FREQ, max_clk), 63);
+		output = MDC_MAX_FREQ / divider;
+	}
+
+	eth->mdc_divider = divider;
+	mtk_mdio_config(eth);
+	dev_dbg(eth->dev, "MDC is running on %d Hz\n", output);
 	ret = of_mdiobus_register(eth->mii_bus, mii_np);
 
 err_put_node:
@@ -1935,7 +1930,7 @@ static int mtk_init_fq_dma(struct mtk_eth *eth)
 
 	if (eth->soc->has_sram &&
 	    mtk_validate_sram_range(eth, eth->fq_ring.phy_scratch_ring,
-				    cnt * soc->txrx.txd_size)) {
+				    (dma_addr_t)cnt * soc->txrx.txd_size)) {
 		eth->fq_ring.scratch_ring = eth->sram_base;
 		eth->fq_ring.in_sram = true;
 	} else {
@@ -2227,7 +2222,7 @@ static void mtk_tx_set_dma_desc_v3(struct sk_buff *skb, struct net_device *dev, 
 #endif
 
 #if IS_ENABLED(CONFIG_MEDIATEK_NETSYS_V3)
-	if (mtk_get_tnl_netsys_params && skb && !(skb->inner_protocol == IPPROTO_ESP)) {
+	if (mtk_get_tnl_netsys_params && !(skb->inner_protocol == IPPROTO_ESP)) {
 		params = mtk_get_tnl_netsys_params(skb);
 		tops_entry = params & 0x000000FF;
 		tport = (params & 0x0000FF00) >> 8;
@@ -3144,7 +3139,7 @@ static int mtk_tx_alloc(struct mtk_eth *eth, int ring_no)
 
 	if (eth->soc->has_sram &&
 	    mtk_validate_sram_range(eth, eth->fq_ring.phy_scratch_ring + offset,
-				    soc->txrx.tx_dma_size * sz)) {
+				    soc->txrx.tx_dma_size * (dma_addr_t)sz)) {
 		ring->dma =  eth->sram_base + offset;
 		ring->phys = eth->fq_ring.phy_scratch_ring + offset;
 		ring->in_sram = true;
@@ -3567,6 +3562,9 @@ static int mtk_hwlro_rx_init(struct mtk_eth *eth)
 	/* switch priority comparison to packet count mode */
 	lro_ctrl_dw0 |= MTK_LRO_ALT_PKT_CNT_MODE;
 
+	/* enable L4 PSH flag check */
+	lro_ctrl_dw0 |= MTK_LRO_L4_CTRL_PSH_EN;
+
 	/* bandwidth threshold setting */
 	mtk_w32(eth, MTK_HW_LRO_BW_THRE, reg_map->pdma.lro_ctrl_dw0 + 0x8);
 
@@ -3576,6 +3574,9 @@ static int mtk_hwlro_rx_init(struct mtk_eth *eth)
 	/* set refresh timer for altering flows to 1 sec. (unit: 20us) */
 	mtk_w32(eth, (MTK_HW_LRO_TIMER_UNIT << 16) | MTK_HW_LRO_REFRESH_TIME,
 		MTK_PDMA_LRO_ALT_REFRESH_TIMER);
+
+	/* enable max 4-depth VLAN support including switch special tag */
+	lro_ctrl_dw3 |= MTK_LRO_VLAN_VID_CMP_DEPTH | MTK_LRO_VLAN_EN;
 
 	/* the minimal remaining room of SDL0 in RXD for lro aggregation */
 	lro_ctrl_dw3 |= MTK_LRO_MIN_RXD_SDL;
@@ -4263,16 +4264,19 @@ static void mtk_tx_timeout(struct net_device *dev)
 {
 	struct mtk_mac *mac = netdev_priv(dev);
 	struct mtk_eth *eth = mac->hw;
-	bool pse_fc = false;
+	struct gdm_tx_monitor *gdm_tx;
+	bool gdm_rxfc = false;
+	int i;
 
 	eth->netdev[mac->id]->stats.tx_errors++;
 	netif_err(eth, tx_err, dev,
 		  "transmit timed out\n");
 
-	if (MTK_HAS_CAPS(eth->soc->caps, MTK_QDMA))
-		pse_fc = eth->reset.qdma_monitor.tx.pse_fc;
+	gdm_tx = &eth->reset.gdm_monitor.tx;
+	for (i = 0; i < MTK_MAX_DEVS; i++)
+		gdm_rxfc |= gdm_tx->rxfc[i];
 
-	if (atomic_read(&reset_lock) == 0 && pse_fc == false)
+	if (atomic_read(&reset_lock) == 0 && gdm_rxfc == false)
 		schedule_work(&eth->pending_work);
 }
 
@@ -4426,6 +4430,8 @@ static int mtk_start_dma(struct mtk_eth *eth)
 		val = mtk_r32(eth, reg_map->qdma.glo_cfg);
 		if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V2) ||
 		    MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V3)) {
+			u32 pkt_rx_wdone = of_property_read_bool(eth->dev->of_node,
+					   "qdma,pkt-rx-wdone") ? MTK_PKT_RX_WDONE : 0;
 			if (MTK_HAS_CAPS(eth->soc->caps, MTK_QDMA_V1_4))
 				mtk_m32(eth, MTK_QDMA_FQ_FASTPATH_EN,
 					MTK_QDMA_FQ_FASTPATH_EN,
@@ -4436,7 +4442,7 @@ static int mtk_start_dma(struct mtk_eth *eth)
 				val | MTK_TX_DMA_EN | MTK_RX_DMA_EN |
 				MTK_DMA_SIZE_32DWORDS | MTK_TX_WB_DDONE |
 				MTK_NDP_CO_PRO | MTK_MUTLI_CNT |
-				MTK_RESV_BUF | MTK_WCOMP_EN |
+				MTK_RESV_BUF | MTK_WCOMP_EN | pkt_rx_wdone |
 				MTK_DMAD_WR_WDONE | MTK_CHK_DDONE_EN |
 				MTK_RX_2B_OFFSET, reg_map->qdma.glo_cfg);
 		} else
@@ -4674,13 +4680,17 @@ static int mtk_open(struct net_device *dev)
 
 	netif_tx_start_all_queues(dev);
 	phy_node = of_parse_phandle(mac->of_node, "phy-handle", 0);
-	if (!phy_node && eth->sgmii && eth->sgmii->pcs[id].regmap)
+	if (!phy_node && mac->interface == PHY_INTERFACE_MODE_SGMII &&
+	    eth->sgmii && eth->sgmii->pcs[id].regmap) {
+		mutex_lock(&eth->sgmii->pcs[id].reset_lock);
 		regmap_write(eth->sgmii->pcs[id].regmap,
 			     SGMSYS_QPHY_PWR_STATE_CTRL, 0);
+		mutex_unlock(&eth->sgmii->pcs[id].reset_lock);
+	}
 
 	mtk_gdm_config(eth, mac->id, MTK_GDMA_TO_PDMA);
 
-	if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_RX_9K) && mac->type == MTK_XGDM_TYPE)
+	if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_RX_9K))
 		eth->netdev[mac->id]->max_mtu = MTK_MAX_RX_LENGTH_9K - MTK_RX_ETH_HLEN;
 	else
 		eth->netdev[mac->id]->max_mtu = MTK_MAX_RX_LENGTH_2K - MTK_RX_ETH_HLEN;
@@ -4764,12 +4774,15 @@ static int mtk_stop(struct net_device *dev)
 	netif_tx_disable(dev);
 
 	phy_node = of_parse_phandle(mac->of_node, "phy-handle", 0);
-	if (!phy_node && eth->sgmii && eth->sgmii->pcs[id].regmap) {
+	if (!phy_node && mac->interface == PHY_INTERFACE_MODE_SGMII &&
+	    eth->sgmii && eth->sgmii->pcs[id].regmap) {
+		mutex_lock(&eth->sgmii->pcs[id].reset_lock);
 		regmap_read(eth->sgmii->pcs[id].regmap,
 			    SGMSYS_QPHY_PWR_STATE_CTRL, &val);
 		val |= SGMII_PHYA_PWD;
 		regmap_write(eth->sgmii->pcs[id].regmap,
 			     SGMSYS_QPHY_PWR_STATE_CTRL, val);
+		mutex_unlock(&eth->sgmii->pcs[id].reset_lock);
 	}
 
 	//GMAC RX disable
@@ -4990,7 +5003,7 @@ static int mtk_hw_init(struct mtk_eth *eth, u32 type)
 		mtk_eth_cold_reset(eth);
 
 	if (!MTK_HAS_CAPS(eth->soc->caps, MTK_SOC_MT7628))
-		mtk_mdc_init(eth);
+		mtk_mdio_config(eth);
 
 	if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_RX_V2)) {
 		/* Set FE to PDMAv2 if necessary */
@@ -5088,11 +5101,6 @@ static int mtk_hw_init(struct mtk_eth *eth, u32 type)
 			/* enable CDMW0 l3_len_ov_drop */
 			mtk_m32(eth, MTK_CDMW0_L3_LEN_OV_DROP,
 				MTK_CDMW0_L3_LEN_OV_DROP, MTK_CDMW0_IG_CTRL);
-			/* disable GDM page_num_mismatch_det */
-			for (i = 0; i < 3; i++) {
-				mtk_m32(eth, GDM_PAGE_MISMATCH_DET, 0,
-					FE_GDM_DBG_CTRL(i));
-			}
 
 			/* PSE should not drop p8 packets */
 			mtk_w32(eth, 0x00000100, PSE_NO_DROP_CFG);
@@ -5228,10 +5236,9 @@ static int mtk_change_mtu(struct net_device *dev, int new_mtu)
 	length = max_mtu + MTK_RX_ETH_HLEN;
 	if (length <= MTK_MAX_RX_LENGTH)
 		eth->rx_buf_len = MTK_MAX_RX_LENGTH;
-	else if (length <= MTK_MAX_RX_LENGTH_2K)
-		eth->rx_buf_len = MTK_MAX_RX_LENGTH_2K;
-	else if (length <= MTK_MAX_RX_LENGTH_9K)
-		eth->rx_buf_len = MTK_MAX_RX_LENGTH_9K;
+	else
+		eth->rx_buf_len = DIV_ROUND_UP(length, MTK_MAX_RX_LENGTH_UNIT) *
+				  MTK_MAX_RX_LENGTH_UNIT;
 
 	return 0;
 }
@@ -5517,12 +5524,14 @@ static void mtk_pending_work(struct work_struct *work)
 			pr_info("send MTK_FE_RESET_DONE event !\n");
 			call_netdevice_notifiers(MTK_FE_RESET_DONE,
 						 eth->netdev[i]);
-#if defined(CONFIG_MEDIATEK_NETSYS_V3)
-			pr_info("waiting done ack from wifi\n");
-			rtnl_unlock();
-			wait_for_completion(&wait_ack_done);
-			rtnl_lock();
-#endif
+
+			if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V3) &&
+			    mtk_wifi_num > 0) {
+				pr_info("waiting done ack from wifi\n");
+				rtnl_unlock();
+				wait_for_completion(&wait_ack_done);
+				rtnl_lock();
+			}
 		}
 		call_netdevice_notifiers(MTK_FE_RESET_NAT_DONE,
 					 eth->netdev[i]);
@@ -5993,40 +6002,86 @@ static const struct net_device_ops mtk_netdev_ops = {
 #endif
 };
 
-static void mux_poll(struct work_struct *work)
+static int mtk_mux_create_phylink(struct mtk_mux *mux, unsigned int channel)
 {
-	struct mtk_mux *mux = container_of(work, struct mtk_mux, poll.work);
+	struct mtk_mac *mac = mux->mac;
+	struct mtk_eth *eth = mac->hw;
+	struct mtk_mux_channel *chan = &mux->channels[channel];
+	struct phylink *pl;
+
+	pl = phylink_create(&mac->phylink_config,
+			    of_fwnode_handle(chan->of_node),
+			    chan->phy_mode, &mtk_phylink_ops);
+	if (IS_ERR(pl)) {
+		dev_err(eth->dev, "Ethernet mux: channel %u: create phylink failed\n", channel);
+		return PTR_ERR(pl);
+	}
+
+	mac->phylink = pl;
+	mac->of_node = mux->channels[channel].of_node;
+	dev_info(eth->dev, "Ethernet mux: created phylink for channel %u\n", channel);
+
+	return 0;
+}
+
+static void mtk_mux_destroy_phylink(struct mtk_mac *mac)
+{
+	if (mac->phylink) {
+		phylink_destroy(mac->phylink);
+		mac->phylink = NULL;
+	}
+}
+
+static void mtk_mux_switch_channel(struct mtk_mux *mux, unsigned int new_channel)
+{
 	struct mtk_mac *mac = mux->mac;
 	struct mtk_eth *eth = mac->hw;
 	struct net_device *dev = eth->netdev[mac->id];
+	int err;
+
+	rtnl_lock();
+	mtk_stop(dev);
+	rtnl_unlock();
+
+	while (test_and_set_bit_lock(MTK_RESETTING, &eth->state))
+		cpu_relax();
+
+	mtk_mux_destroy_phylink(mac);
+
+	err = mtk_mux_create_phylink(mux, new_channel);
+	if (err) {
+		clear_bit_unlock(MTK_RESETTING, &eth->state);
+		return;
+	}
+
+	clear_bit_unlock(MTK_RESETTING, &eth->state);
+	dev_info(eth->dev, "Ethernet mux: switched to channel %d\n", new_channel);
+
+	rtnl_lock();
+	mtk_open(dev);
+	rtnl_unlock();
+
+	gpiod_set_value_cansleep(mux->chan_sel_gpio, new_channel);
+	mux->active_channel = new_channel;
+}
+
+static void mux_poll(struct work_struct *work)
+{
+	struct mtk_mux *mux = container_of(work, struct mtk_mux, poll.work);
+	struct net_device *dev = mux->mac->hw->netdev[mux->mac->id];
 	unsigned int new_channel;
-	int sfp_present;
+	int sfp_connected;
 
 	if (IS_ERR(mux->mod_def0_gpio) || IS_ERR(mux->chan_sel_gpio))
 		goto reschedule;
 
-	sfp_present = gpiod_get_value_cansleep(mux->mod_def0_gpio);
-	new_channel = sfp_present ? mux->sfp_present_channel : !mux->sfp_present_channel;
+	sfp_connected = gpiod_get_value_cansleep(mux->mod_def0_gpio);
+	new_channel = sfp_connected ? mux->sfp_connected_channel : !mux->sfp_connected_channel;
 
-	if (mux->channel == new_channel || !netif_running(dev))
+	if (mux->active_channel == new_channel || !netif_running(dev))
 		goto reschedule;
 
-	rtnl_lock();
-
-	mtk_stop(dev);
-
-	mac->of_node = mux->data[new_channel]->of_node;
-	mac->phylink = mux->data[new_channel]->phylink;
-
-	dev_info(eth->dev, "ethernet mux: switch to channel%d\n", new_channel);
-
-	gpiod_set_value_cansleep(mux->chan_sel_gpio, new_channel);
-
-	mtk_open(dev);
-
-	rtnl_unlock();
-
-	mux->channel = new_channel;
+	mtk_mux_switch_channel(mux, new_channel);
 
 reschedule:
 	mod_delayed_work(system_wq, &mux->poll, msecs_to_jiffies(100));
@@ -6035,61 +6090,39 @@ reschedule:
 static int mtk_add_mux_channel(struct mtk_mux *mux, struct device_node *np)
 {
 	const __be32 *_id = of_get_property(np, "reg", NULL);
-	struct mtk_mac *mac = mux->mac;
-	struct mtk_eth *eth = mac->hw;
-	struct mtk_mux_data *data;
-	struct phylink *phylink;
-	int phy_mode, id, err;
+	struct mtk_eth *eth = mux->mac->hw;
+	int id;
 
 	if (!_id) {
-		dev_err(eth->dev, "missing mux channel id\n");
+		dev_err(eth->dev, "Ethernet mux: missing mux channel id\n");
 		return -EINVAL;
 	}
 
 	id = be32_to_cpup(_id);
 	if (id < 0 || id > 1) {
-		dev_err(eth->dev, "%d is not a valid mux channel id\n", id);
+		dev_err(eth->dev, "Ethernet mux: %d is not a valid mux channel id\n", id);
 		return -EINVAL;
 	}
 
-	data = kmalloc(sizeof(*data), GFP_KERNEL);
-	if (unlikely(!data)) {
-		dev_err(eth->dev, "failed to create mux data structure\n");
-		return -ENOMEM;
-	}
+	mux->channels[id].of_node = np;
+	mux->channels[id].phy_mode = of_get_phy_mode(np);
 
-	phy_mode = of_get_phy_mode(np);
-	if (phy_mode < 0) {
-		dev_err(eth->dev, "incorrect phy-mode\n");
-		err = -EINVAL;
-		goto err_free_data;
+	if (mux->channels[id].phy_mode < 0) {
+		dev_err(eth->dev, "Ethernet mux: invalid phy-mode for channel %d\n", id);
+		return -EINVAL;
 	}
-
-	phylink = phylink_create(&mux->mac->phylink_config,
-				 of_fwnode_handle(np),
-				 phy_mode, &mtk_phylink_ops);
-	if (IS_ERR(phylink)) {
-		dev_err(eth->dev, "failed to create phylink structure\n");
-		err = PTR_ERR(phylink);
-		goto err_free_data;
-	}
-
-	data->of_node = np;
-	data->phylink = phylink;
-	mux->data[id] = data;
 
 	return 0;
-
-err_free_data:
-	kfree(data);
-	return err;
 }
 
 static void mtk_release_mux(struct mtk_eth *eth, int id)
 {
-	struct mtk_mux *mux = eth->mux[id];
-	int i;
+	struct mtk_mux *mux;
 
+	if (id < 0 || id >= MTK_MAX_DEVS)
+		return;
+
+	mux = eth->mux[id];
 	if (!mux)
 		return;
 
@@ -6101,13 +6134,6 @@ static void mtk_release_mux(struct mtk_eth *eth, int id)
 	if (!IS_ERR_OR_NULL(mux->chan_sel_gpio))
 		gpiod_put(mux->chan_sel_gpio);
 
-	for (i = 0; i < 2; i++) {
-		if (mux->data[i]) {
-			if (mux->data[i]->phylink)
-				phylink_destroy(mux->data[i]->phylink);
-			kfree(mux->data[i]);
-		}
-	}
 	kfree(mux);
 	eth->mux[id] = NULL;
 }
@@ -6129,19 +6155,19 @@ static int mtk_add_mux(struct mtk_eth *eth, struct device_node *np)
 	int err;
 
 	if (!_id) {
-		dev_err(eth->dev, "missing attach mac id\n");
+		dev_err(eth->dev, "Ethernet mux: missing attach mac id\n");
 		return -EINVAL;
 	}
 
 	id = be32_to_cpup(_id);
-	if (id < 0 || id >= MTK_MAX_DEVS) {
-		dev_err(eth->dev, "%d is not a valid attach mac id\n", id);
+	if (id >= MTK_MAX_DEVS) {
+		dev_err(eth->dev, "Ethernet mux: %d is not a valid attach mac id\n", id);
 		return -EINVAL;
 	}
 
 	mux = kmalloc(sizeof(struct mtk_mux), GFP_KERNEL);
 	if (unlikely(!mux)) {
-		dev_err(eth->dev, "failed to create mux structure\n");
+		dev_err(eth->dev, "Ethernet mux: failed to create mux structure\n");
 		return -ENOMEM;
 	}
 
@@ -6150,7 +6176,7 @@ static int mtk_add_mux(struct mtk_eth *eth, struct device_node *np)
 				GPIOD_FLAGS_BIT_NONEXCLUSIVE, "?");
 
 	if (IS_ERR(mux->mod_def0_gpio)) {
-		dev_err(eth->dev, "failed to requset gpio for mod-def0\n");
+		dev_err(eth->dev, "Ethernet mux: failed to requset gpio for mod-def0\n");
 		err = PTR_ERR(mux->mod_def0_gpio);
 		goto err_free_mux;
 	}
@@ -6159,23 +6185,24 @@ static int mtk_add_mux(struct mtk_eth *eth, struct device_node *np)
 				"chan-sel-gpios", 0, GPIOD_OUT_LOW, "?");
 
 	if (IS_ERR(mux->chan_sel_gpio)) {
-		dev_err(eth->dev, "failed to requset gpio for chan-sel\n");
+		dev_err(eth->dev, "Ethernet mux: failed to requset gpio for chan-sel\n");
 		err = PTR_ERR(mux->chan_sel_gpio);
 		goto err_put_mod_def0;
 	}
 
-	of_property_read_u32(np, "sfp-present-channel",
-				&mux->sfp_present_channel);
+	of_property_read_u32(np, "sfp-connected-channel",
+				&mux->sfp_connected_channel);
 
 	eth->mux[id] = mux;
 	mux->mac = eth->mac[id];
-	/* configure default channel to 10G PHY */
-	mux->channel = !mux->sfp_present_channel;
+	/* configure active channel to 10G PHY */
+	mux->active_channel = !mux->sfp_connected_channel;
+	gpiod_set_value_cansleep(mux->chan_sel_gpio, mux->active_channel);
 
 	for_each_child_of_node(np, child) {
 		err = mtk_add_mux_channel(mux, child);
 		if (err) {
-			dev_err(eth->dev, "failed to add mtk_mux\n");
+			dev_err(eth->dev, "Ethernet mux: failed to add mtk_mux\n");
 			of_node_put(child);
 			goto err_put_chan_sel;
 		}
@@ -6430,6 +6457,8 @@ static int mtk_probe(struct platform_device *pdev)
 			return PTR_ERR(eth->sram_base);
 
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		if (unlikely(!res))
+			return -EINVAL;
 		eth->sram_size = resource_size(res);
 	} else {
 		eth->sram_base = (void __force *)eth->base + MTK_ETH_SRAM_OFFSET;
