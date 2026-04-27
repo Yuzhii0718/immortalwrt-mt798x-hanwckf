@@ -2,11 +2,14 @@
 #include "mt7986a.dtsi"
 #include "mt7986a-pinctrl.dtsi"
 #include "mt7986-snfi-nand-partition.dtsi"
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+
 / {
 	model = "MediaTek MT7986a RFB";
 	compatible = "mediatek,mt7986a-snfi-snand-rfb";
 	chosen {
-		bootargs = "console=ttyS0,115200n1 loglevel=8  \
+		bootargs = "console=ttyS0,115200n1 loglevel=6  \
 				earlycon=uart8250,mmio32,0x11002000";
 	};
 
@@ -14,27 +17,58 @@
 		reg = <0 0x40000000 0 0x10000000>;
 	};
 
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		reset {
+			label = "reset";
+			linux,code = <KEY_RESTART>;
+			gpios = <&pio 9 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+		};
+
+		wps {
+			label = "wps";
+			linux,code = <KEY_WPS_BUTTON>;
+			gpios = <&pio 10 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+		};
+	};
+
 	sound_wm8960 {
-		compatible = "mediatek,mt79xx-wm8960-machine";
-		mediatek,platform = <&afe>;
+		compatible = "mediatek,mt7986-wm8960-sound";
 		audio-routing = "Headphone", "HP_L",
 				"Headphone", "HP_R",
 				"LINPUT1", "AMIC",
 				"RINPUT1", "AMIC";
-		mediatek,audio-codec = <&wm8960>;
+
 		status = "okay";
+
+		platform {
+			sound-dai = <&afe>;
+		};
+
+		codec {
+			sound-dai = <&wm8960>;
+		};
 	};
 
 	sound_si3218x {
-		compatible = "mediatek,mt79xx-si3218x-machine";
-		mediatek,platform = <&afe>;
-		mediatek,ext-codec = <&proslic_spi>;
+		compatible = "mediatek,mt7986-si3218x-sound";
 		status = "okay";
+
+		platform {
+			sound-dai = <&afe>;
+		};
+
+		codec {
+			sound-dai = <&proslic_spi>;
+		};
 	};
 };
 
 &fan {
-	pwms = <&pwm 1 50000 0>;
+	pwms = <&pwm 1 50000>;
 	status = "disabled";
 };
 

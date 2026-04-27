@@ -2,11 +2,14 @@
 #include "mt7986a.dtsi"
 #include "mt7986a-pinctrl.dtsi"
 #include "mt7986-spim-nand-partition.dtsi"
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+
 / {
 	model = "MediaTek MT7986a RFB";
 	compatible = "mediatek,mt7986a-spim-snand-rfb";
 	chosen {
-		bootargs = "console=ttyS0,115200n1 loglevel=8  \
+		bootargs = "console=ttyS0,115200n1 loglevel=6  \
 				earlycon=uart8250,mmio32,0x11002000";
 	};
 
@@ -14,27 +17,58 @@
 		reg = <0 0x40000000 0 0x10000000>;
 	};
 
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		reset {
+			label = "reset";
+			linux,code = <KEY_RESTART>;
+			gpios = <&pio 9 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+		};
+
+		wps {
+			label = "wps";
+			linux,code = <KEY_WPS_BUTTON>;
+			gpios = <&pio 10 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+		};
+	};
+
 	sound_wm8960 {
-		compatible = "mediatek,mt79xx-wm8960-machine";
-		mediatek,platform = <&afe>;
+		compatible = "mediatek,mt7986-wm8960-sound";
 		audio-routing = "Headphone", "HP_L",
 				"Headphone", "HP_R",
 				"LINPUT1", "AMIC",
 				"RINPUT1", "AMIC";
-		mediatek,audio-codec = <&wm8960>;
+
 		status = "okay";
+
+		platform {
+			sound-dai = <&afe>;
+		};
+
+		codec {
+			sound-dai = <&wm8960>;
+		};
 	};
 
 	sound_si3218x {
-		compatible = "mediatek,mt79xx-si3218x-machine";
-		mediatek,platform = <&afe>;
-		mediatek,ext-codec = <&proslic_spi>;
+		compatible = "mediatek,mt7986-si3218x-sound";
 		status = "okay";
+
+		platform {
+			sound-dai = <&afe>;
+		};
+
+		codec {
+			sound-dai = <&proslic_spi>;
+		};
 	};
 };
 
 &fan {
-	pwms = <&pwm 1 50000 0>;
+	pwms = <&pwm 1 50000>;
 	status = "disabled";
 };
 
@@ -188,6 +222,13 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "jedec,spi-nor";
+		spi-cal-enable;
+		spi-cal-mode = "read-data";
+		spi-cal-datalen = <7>;
+		spi-cal-data = /bits/ 8 <
+			0x53 0x46 0x5F 0x42 0x4F 0x4F 0x54>; /* SF_BOOT */
+		spi-cal-addrlen = <1>;
+		spi-cal-addr = /bits/ 32 <0x0>;
 		reg = <0>;
 		spi-max-frequency = <52000000>;
 		spi-tx-bus-width = <4>;
@@ -198,6 +239,12 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "spi-nand";
+		spi-cal-enable;
+		spi-cal-mode = "read-data";
+		spi-cal-datalen = <7>;
+		spi-cal-data = /bits/ 8 <0x53 0x50 0x49 0x4E 0x41 0x4E 0x44>;
+		spi-cal-addrlen = <5>;
+		spi-cal-addr = /bits/ 32 <0x0 0x0 0x0 0x0 0x0>;
 		reg = <1>;
 		spi-max-frequency = <52000000>;
 		spi-tx-bus-width = <4>;
@@ -245,12 +292,12 @@
 		};
 		conf-pu {
 			pins = "SPI2_CS", "SPI2_HOLD", "SPI2_WP";
-			drive-strength = <MTK_DRIVE_8mA>;
+			drive-strength = <MTK_DRIVE_4mA>;
 			bias-pull-up = <MTK_PUPD_SET_R1R0_11>;
 		};
 		conf-pd {
 			pins = "SPI2_CLK", "SPI2_MOSI", "SPI2_MISO";
-			drive-strength = <MTK_DRIVE_8mA>;
+			drive-strength = <MTK_DRIVE_4mA>;
 			bias-pull-down = <MTK_PUPD_SET_R1R0_11>;
 		};
 	};
