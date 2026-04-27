@@ -491,6 +491,7 @@ static int mt7531_mac_port_setup(struct gsw_mt753x *gsw, u32 port,
 		mt7531_set_port_rgmii(gsw, port);
 		break;
 	case PHY_INTERFACE_MODE_SGMII:
+	case PHY_INTERFACE_MODE_2500BASEX:
 		if (port_cfg->force_link)
 			mt7531_set_port_sgmii_force_mode(gsw, port, port_cfg);
 		else
@@ -836,8 +837,7 @@ static void mt7531_phy_setting(struct gsw_mt753x *gsw)
 	u32 val;
 
 	for (i = 0; i < MT753X_NUM_PHYS; i++) {
-		if (!gsw->direct_access)
-			mt7531_phy_100m_eye_diag_setting(gsw, i);
+		mt7531_phy_100m_eye_diag_setting(gsw, i);
 
 		/* Enable HW auto downshift */
 		gsw->mii_write(gsw, i, 0x1f, 0x1);
@@ -861,14 +861,12 @@ static void mt7531_phy_setting(struct gsw_mt753x *gsw)
 		val |= PHY_LINKDOWN_POWER_SAVING_EN;
 		gsw->mii_write(gsw, i, PHY_EXT_REG_17, val);
 
-		if (!gsw->direct_access) {
-			val = gsw->mmd_read(gsw, i, PHY_DEV1E,
-					    PHY_DEV1E_REG_0C6);
-			val &= ~PHY_POWER_SAVING_M;
-			val |= PHY_POWER_SAVING_TX << PHY_POWER_SAVING_S;
-			gsw->mmd_write(gsw, i, PHY_DEV1E, PHY_DEV1E_REG_0C6,
-				       val);
-		}
+		val = gsw->mmd_read(gsw, i, PHY_DEV1E,
+				    PHY_DEV1E_REG_0C6);
+		val &= ~PHY_POWER_SAVING_M;
+		val |= PHY_POWER_SAVING_TX << PHY_POWER_SAVING_S;
+		gsw->mmd_write(gsw, i, PHY_DEV1E, PHY_DEV1E_REG_0C6,
+			       val);
 
 		/* Timing Recovery for GbE slave mode */
 		mt753x_tr_write(gsw, i, PMA_CH, PMA_NOD, PMA_01, 0x6fb90a);
@@ -907,8 +905,7 @@ static void mt7531_adjust_line_driving(struct gsw_mt753x *gsw, u32 port)
 	gsw->mmd_write(gsw, port, PHY_DEV1F, TXVLD_DA_273, 0x3000);
 
 	/* Adjust RX Echo path filter */
-	if (!gsw->direct_access)
-		gsw->mmd_write(gsw, port, PHY_DEV1E, PHY_DEV1E_REG_0FE, 0x2);
+	gsw->mmd_write(gsw, port, PHY_DEV1E, PHY_DEV1E_REG_0FE, 0x2);
 
 	/* Adjust RX HVGA bias current */
 	gsw->mmd_write(gsw, port, PHY_DEV1E, PHY_DEV1E_REG_41, 0x3333);
@@ -1047,6 +1044,7 @@ static int mt7988_sw_init(struct gsw_mt753x *gsw)
 	u32 pmcr;
 	u32 speed;
 
+	pdev = container_of(gsw->dev, struct platform_device, dev);
 	switch_node = of_find_node_by_name(NULL, "switch0");
 	if (switch_node == NULL) {
 		dev_err(&pdev->dev, "switch node invaild\n");
@@ -1059,7 +1057,6 @@ static int mt7988_sw_init(struct gsw_mt753x *gsw)
 		return -EIO;
 	}
 
-	pdev = container_of(gsw->dev, struct platform_device, dev);
 	gsw->sysctrl_base = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
 							"mediatek,sysctrl");
 	if (IS_ERR(gsw->sysctrl_base)) {
@@ -1079,12 +1076,6 @@ static int mt7988_sw_init(struct gsw_mt753x *gsw)
 	gsw->mii_write = mt753x_mii_write;
 	gsw->mmd_read = mt753x_mmd_read;
 	gsw->mmd_write = mt753x_mmd_write;
-
-	for (i = 0; i < MT753X_NUM_PHYS; i++) {
-		val = gsw->mii_read(gsw, i, MII_BMCR);
-		val |= BMCR_ISOLATE;
-		gsw->mii_write(gsw, i, MII_BMCR, val);
-	}
 
 	speed = MAC_SPD_1000;
 	pmcr = (IPG_96BIT_WITH_SHORT_IPG << IPG_CFG_S) |
@@ -1112,12 +1103,6 @@ static int mt7988_sw_init(struct gsw_mt753x *gsw)
 	/* Disable AFIFO reset for extra short IPG */
 	mt7531_afifo_reset(gsw, 0);
 
-	/* PHY force slave 1G*/
-	for (i = 0; i < MT753X_NUM_PHYS; i++) {
-		gsw->mii_write(gsw, i, MII_CTRL1000, 0x1200);
-		gsw->mii_write(gsw, i, MII_BMCR, 0x140);
-	}
-
 	return 0;
 }
 
@@ -1138,8 +1123,7 @@ static int mt7531_sw_post_init(struct gsw_mt753x *gsw)
 	val |= POWER_ON_OFF;
 	gsw->mmd_write(gsw, 0, PHY_DEV1F, PHY_DEV1F_REG_403, val);
 
-	if (!gsw->direct_access)
-		mt7531_phy_pll_setup(gsw);
+	mt7531_phy_pll_setup(gsw);
 
 	/* Enable Internal PHYs before phy setting */
 	val = gsw->mmd_read(gsw, 0, PHY_DEV1F, PHY_DEV1F_REG_403);
@@ -1164,8 +1148,7 @@ static int mt7531_sw_post_init(struct gsw_mt753x *gsw)
 	for (i = 0; i < MT753X_NUM_PHYS; i++)
 		gsw->mmd_write(gsw, i, PHY_DEV1E, PHY_DEV1E_REG_141, 0x0);
 
-	if (!gsw->direct_access)
-		mt7531_internal_phy_calibration(gsw);
+	mt7531_internal_phy_calibration(gsw);
 
 	/* PHY force slave disable, restart AN*/
 	for (i = 0; i < MT753X_NUM_PHYS; i++) {
@@ -1187,7 +1170,6 @@ struct mt753x_sw_id mt7988_id = {
 	.model = MT7988,
 	.detect = mt7988_sw_detect,
 	.init = mt7988_sw_init,
-	.post_init = mt7531_sw_post_init
 };
 
 MODULE_LICENSE("GPL");

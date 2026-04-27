@@ -249,7 +249,6 @@ static void mt753x_load_port_cfg(struct gsw_mt753x *gsw)
 	struct device_node *port_np;
 	struct device_node *fixed_link_node;
 	struct mt753x_port_cfg *port_cfg;
-	phy_interface_t phy_mode;
 	u32 port;
 
 	for_each_child_of_node(gsw->dev->of_node, port_np) {
@@ -281,12 +280,11 @@ static void mt753x_load_port_cfg(struct gsw_mt753x *gsw)
 
 		port_cfg->np = port_np;
 
-		phy_mode = of_get_phy_mode(port_cfg->np);
-		if ((int)phy_mode < 0) {
+		port_cfg->phy_mode = of_get_phy_mode(port_np);
+		if (port_cfg->phy_mode < 0) {
 			dev_info(gsw->dev, "incorrect phy-mode %d\n", port);
 			continue;
 		}
-		port_cfg->phy_mode = phy_mode;
 
 		fixed_link_node = of_get_child_by_name(port_np, "fixed-link");
 		if (fixed_link_node) {
@@ -497,7 +495,7 @@ static int mt753x_hw_reset(struct gsw_mt753x *gsw)
 	struct device_node *np = gsw->dev->of_node;
 	struct reset_control *rstc;
 	int mcm;
-	int ret = -EINVAL;
+	int ret;
 
 	mcm = of_property_read_bool(np, "mediatek,mcm");
 	if (mcm) {
@@ -592,7 +590,7 @@ static void mt753x_connect_internal_phys(struct gsw_mt753x *gsw,
 			continue;
 
 		iface = of_get_phy_mode(phy_np);
-		if ((int)iface < 0) {
+		if (iface < 0) {
 			dev_info(gsw->dev, "incorrect phy-mode %d for PHY %d\n",
 				 iface, phyad);
 			continue;
@@ -605,7 +603,7 @@ static void mt753x_connect_internal_phys(struct gsw_mt753x *gsw,
 		phy->netdev.netdev_ops = &mt753x_dummy_netdev_ops;
 
 		phy->phydev = of_phy_connect(&phy->netdev, phy_np,
-					     mt753x_phy_link_handler, 0, iface);
+					mt753x_phy_link_handler, 0, iface);
 		if (!phy->phydev) {
 			dev_info(gsw->dev, "could not connect to PHY %d\n",
 				 phyad);
@@ -767,6 +765,8 @@ static int mt753x_probe(struct platform_device *pdev)
 
 	gsw->irq = platform_get_irq(pdev, 0);
 	if (gsw->irq >= 0) {
+		INIT_WORK(&gsw->irq_worker, mt753x_irq_worker);
+
 		ret = devm_request_irq(gsw->dev, gsw->irq, mt753x_irq_handler,
 				       0, dev_name(gsw->dev), gsw);
 		if (ret) {
@@ -774,8 +774,6 @@ static int mt753x_probe(struct platform_device *pdev)
 				gsw->irq);
 			goto fail;
 		}
-
-		INIT_WORK(&gsw->irq_worker, mt753x_irq_worker);
 	}
 
 	platform_set_drvdata(pdev, gsw);

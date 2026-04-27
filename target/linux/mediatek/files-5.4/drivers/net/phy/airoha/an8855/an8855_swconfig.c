@@ -23,6 +23,7 @@
 #include "an8855.h"
 #include "an8855_swconfig.h"
 #include "an8855_regs.h"
+#include "an8855_vlan.h"
 
 #define AN8855_PORT_MIB_TXB_ID	19	/* TxByte */
 #define AN8855_PORT_MIB_RXB_ID	40	/* RxByte */
@@ -276,7 +277,8 @@ static int an8855_get_port_link(struct switch_dev *dev, int port,
 		link->speed = SWITCH_PORT_SPEED_1000;
 		break;
 	case MAC_SPD_2500:
-		link->speed = SWITCH_PORT_SPEED_2500;
+		/* TODO: swconfig has no support for 2500 now */
+		link->speed = SWITCH_PORT_SPEED_UNKNOWN;
 		break;
 	}
 
@@ -409,6 +411,8 @@ static int an8855_reset_switch(struct switch_dev *dev)
 	 */
 	for (i = 0; i < AN8855_NUM_VLANS; i++)
 		gsw->vlan_entries[i].vid = i;
+
+	an8855_clear_all_vlan(gsw);
 
 	return 0;
 }
