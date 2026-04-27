@@ -204,6 +204,7 @@
 	mtketh-lan = "lan";
 	mtketh-max-gmac = <2>;
 	status = "okay";
+	/delete-property/ mtketh-ppe-num;
 };
 
 &pio {
