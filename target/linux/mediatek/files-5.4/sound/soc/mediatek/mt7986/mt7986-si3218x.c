@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * mt79xx-si3218x.c  --  MT79xx WM8960 ALSA SoC machine driver
+ * mt7986-si3218x.c  --  MT7986-SI3218X ALSA SoC machine driver
  *
- * Copyright (c) 2021 MediaTek Inc.
- * Author: Vic Wu <vic.wu@mediatek.com>
+ * Copyright (c) 2023 MediaTek Inc.
+ * Authors: Vic Wu <vic.wu@mediatek.com>
+ *          Maso Huang <maso.huang@mediatek.com>
  */
 
+#include <linux/bitfield.h>
 #include <linux/module.h>
 #include <sound/soc.h>
 
-#include "mt79xx-afe-clk.h"
-#include "mt79xx-afe-common.h"
-#include "mt79xx-reg.h"
+#include "mt7986-afe-common.h"
+#include "mt7986-reg.h"
 #include "../common/mtk-afe-platform-driver.h"
 
 enum {
@@ -62,23 +63,23 @@ enum {
 	ETDM_FS_176K = 20,
 };
 
-struct mt79xx_si3218x_priv {
-	struct device_node *platform_node;
-	struct device_node *codec_node;
-};
-
-static int mt79xx_si3218x_init(struct snd_soc_pcm_runtime *rtd)
+static int mt7986_si3218x_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_component *component =
 		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
+	struct mt7986_afe_private *afe_priv = afe->platform_priv;
+	int ret;
 
 	/* enable clk */
-	mt79xx_afe_enable_clock(afe);
-	regmap_update_bits(afe->regmap, AUDIO_TOP_CON2, CLK_OUT5_PDN_MASK,
-			   0);
-	regmap_update_bits(afe->regmap, AUDIO_TOP_CON2, CLK_IN5_PDN_MASK,
-			   0);
+	ret = clk_bulk_prepare_enable(afe_priv->num_clks, afe_priv->clks);
+	if (ret) {
+		dev_err(afe->dev, "Failed to enable clocks\n");
+		return ret;
+	}
+
+	regmap_update_bits(afe->regmap, AUDIO_TOP_CON2, CLK_OUT5_PDN_MASK, 0);
+	regmap_update_bits(afe->regmap, AUDIO_TOP_CON2, CLK_IN5_PDN_MASK, 0);
 	regmap_update_bits(afe->regmap, AUDIO_TOP_CON4, 0x3fff, 0);
 	regmap_update_bits(afe->regmap, AUDIO_ENGEN_CON0, AUD_APLL2_EN_MASK,
 			   AUD_APLL2_EN);
@@ -89,15 +90,15 @@ static int mt79xx_si3218x_init(struct snd_soc_pcm_runtime *rtd)
 	regmap_update_bits(afe->regmap, ETDM_IN5_CON0, ETDM_SYNC_MASK,
 			   ETDM_SYNC);
 	regmap_update_bits(afe->regmap, ETDM_IN5_CON0, ETDM_FMT_MASK,
-			   ETDM_FMT(PCMA));
+			   FIELD_PREP(ETDM_FMT_MASK, PCMA));
 	regmap_update_bits(afe->regmap, ETDM_IN5_CON0, ETDM_BIT_LEN_MASK,
-			   ETDM_BIT_LEN(16));
+			   FIELD_PREP(ETDM_BIT_LEN_MASK, 16 - 1));
 	regmap_update_bits(afe->regmap, ETDM_IN5_CON0, ETDM_WRD_LEN_MASK,
-			   ETDM_WRD_LEN(16));
+			   FIELD_PREP(ETDM_WRD_LEN_MASK, 16 - 1));
 	regmap_update_bits(afe->regmap, ETDM_IN5_CON0, ETDM_CH_NUM_MASK,
-			   ETDM_CH_NUM(4));
+			   FIELD_PREP(ETDM_CH_NUM_MASK, 4 - 1));
 	regmap_update_bits(afe->regmap, ETDM_IN5_CON0, RELATCH_SRC_MASK,
-			   RELATCH_SRC(APLL_CLK));
+			   FIELD_PREP(RELATCH_SRC_MASK, APLL_CLK));
 
 	/* set ETDM_IN5_CON2 */
 	regmap_update_bits(afe->regmap, ETDM_IN5_CON2, IN_CLK_SRC_MASK,
@@ -115,15 +116,15 @@ static int mt79xx_si3218x_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* set ETDM_OUT5_CON0 */
 	regmap_update_bits(afe->regmap, ETDM_OUT5_CON0, ETDM_FMT_MASK,
-			   ETDM_FMT(PCMA));
+			   FIELD_PREP(ETDM_FMT_MASK, PCMA));
 	regmap_update_bits(afe->regmap, ETDM_OUT5_CON0, ETDM_BIT_LEN_MASK,
-			   ETDM_BIT_LEN(16));
+			   FIELD_PREP(ETDM_BIT_LEN_MASK, 16 - 1));
 	regmap_update_bits(afe->regmap, ETDM_OUT5_CON0, ETDM_WRD_LEN_MASK,
-			   ETDM_WRD_LEN(16));
+			   FIELD_PREP(ETDM_WRD_LEN_MASK, 16 - 1));
 	regmap_update_bits(afe->regmap, ETDM_OUT5_CON0, ETDM_CH_NUM_MASK,
-			   ETDM_CH_NUM(4));
+			   FIELD_PREP(ETDM_CH_NUM_MASK, 4 - 1));
 	regmap_update_bits(afe->regmap, ETDM_OUT5_CON0, RELATCH_SRC_MASK,
-			   RELATCH_SRC(APLL_CLK));
+			   FIELD_PREP(RELATCH_SRC_MASK, APLL_CLK));
 
 	/* set ETDM_OUT5_CON4 */
 	regmap_update_bits(afe->regmap, ETDM_OUT5_CON4, OUT_SEL_FS_MASK,
@@ -167,7 +168,7 @@ SND_SOC_DAILINK_DEFS(codec,
 	DAILINK_COMP_ARRAY(COMP_CODEC(NULL, "proslic_spi-aif")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 
-static struct snd_soc_dai_link mt79xx_si3218x_dai_links[] = {
+static struct snd_soc_dai_link mt7986_si3218x_dai_links[] = {
 	/* FE */
 	{
 		.name = "si3218x-playback",
@@ -194,34 +195,41 @@ static struct snd_soc_dai_link mt79xx_si3218x_dai_links[] = {
 		.dai_fmt = SND_SOC_DAIFMT_DSP_A |
 			SND_SOC_DAIFMT_IB_NF |
 			SND_SOC_DAIFMT_CBS_CFS,
-		.init = mt79xx_si3218x_init,
+		.init = mt7986_si3218x_init,
 		.dpcm_playback = 1,
 		.dpcm_capture = 1,
 		SND_SOC_DAILINK_REG(codec),
 	},
 };
 
-static struct snd_soc_card mt79xx_si3218x_card = {
-	.name = "mt79xx-si3218x",
+static struct snd_soc_card mt7986_si3218x_card = {
+	.name = "mt7986-si3218x",
 	.owner = THIS_MODULE,
-	.dai_link = mt79xx_si3218x_dai_links,
-	.num_links = ARRAY_SIZE(mt79xx_si3218x_dai_links),
+	.dai_link = mt7986_si3218x_dai_links,
+	.num_links = ARRAY_SIZE(mt7986_si3218x_dai_links),
 };
 
-static int mt79xx_si3218x_machine_probe(struct platform_device *pdev)
+static int mt7986_si3218x_machine_probe(struct platform_device *pdev)
 {
-	struct snd_soc_card *card = &mt79xx_si3218x_card;
+	struct snd_soc_card *card = &mt7986_si3218x_card;
 	struct snd_soc_dai_link *dai_link;
-	struct mt79xx_si3218x_priv *priv;
+	struct device_node *platform, *codec;
+	struct device_node *platform_dai_node, *codec_dai_node;
 	int ret, i;
 
-	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
-	if (!priv)
-		return -ENOMEM;
+	card->dev = &pdev->dev;
 
-	priv->platform_node = of_parse_phandle(pdev->dev.of_node,
-					       "mediatek,platform", 0);
-	if (!priv->platform_node) {
+	platform = of_get_child_by_name(pdev->dev.of_node, "platform");
+
+	if (platform) {
+		platform_dai_node = of_parse_phandle(platform, "sound-dai", 0);
+		of_node_put(platform);
+
+		if (!platform_dai_node) {
+			dev_err(&pdev->dev, "Failed to parse platform/sound-dai property\n");
+			return -EINVAL;
+		}
+	} else {
 		dev_err(&pdev->dev, "Property 'platform' missing or invalid\n");
 		return -EINVAL;
 	}
@@ -229,70 +237,61 @@ static int mt79xx_si3218x_machine_probe(struct platform_device *pdev)
 	for_each_card_prelinks(card, i, dai_link) {
 		if (dai_link->platforms->name)
 			continue;
-		dai_link->platforms->of_node = priv->platform_node;
+		dai_link->platforms->of_node = platform_dai_node;
 	}
 
-	card->dev = &pdev->dev;
+	codec = of_get_child_by_name(pdev->dev.of_node, "codec");
 
-	priv->codec_node = of_parse_phandle(pdev->dev.of_node,
-					    "mediatek,ext-codec", 0);
-	if (!priv->codec_node) {
-		dev_err(&pdev->dev,
-			"Property 'audio-codec' missing or invalid\n");
-		of_node_put(priv->platform_node);
+	if (codec) {
+		codec_dai_node = of_parse_phandle(codec, "sound-dai", 0);
+		of_node_put(codec);
+
+		if (!codec_dai_node) {
+			of_node_put(platform_dai_node);
+			dev_err(&pdev->dev, "Failed to parse codec/sound-dai property\n");
+			return -EINVAL;
+		}
+	} else {
+		of_node_put(platform_dai_node);
+		dev_err(&pdev->dev, "Property 'codec' missing or invalid\n");
 		return -EINVAL;
 	}
 
 	for_each_card_prelinks(card, i, dai_link) {
 		if (dai_link->codecs->name)
 			continue;
-		dai_link->codecs->of_node = priv->codec_node;
+		dai_link->codecs->of_node = codec_dai_node;
 	}
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret) {
-		dev_err(&pdev->dev, "%s snd_soc_register_card fail %d\n",
-			__func__, ret);
-		of_node_put(priv->codec_node);
-		of_node_put(priv->platform_node);
+		dev_err(&pdev->dev, "%s snd_soc_register_card fail: %d\n", __func__, ret);
+		goto err_of_node_put;
 	}
 
+err_of_node_put:
+	of_node_put(platform_dai_node);
+	of_node_put(codec_dai_node);
 	return ret;
 }
 
-static int mt79xx_si3218x_machine_remove(struct platform_device *pdev)
-{
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	struct mt79xx_si3218x_priv *priv = snd_soc_card_get_drvdata(card);
-
-	of_node_put(priv->codec_node);
-	of_node_put(priv->platform_node);
-
-	return 0;
-}
-
-#ifdef CONFIG_OF
-static const struct of_device_id mt79xx_si3218x_machine_dt_match[] = {
-	{.compatible = "mediatek,mt79xx-si3218x-machine",},
-	{}
+static const struct of_device_id mt7986_si3218x_machine_dt_match[] = {
+	{.compatible = "mediatek,mt7986-si3218x-sound"},
+	{ /* sentinel */ }
 };
-#endif
 
-static struct platform_driver mt79xx_si3218x_machine = {
+static struct platform_driver mt7986_si3218x_machine = {
 	.driver = {
-		.name = "mt79xx-si3218x",
-#ifdef CONFIG_OF
-		.of_match_table = mt79xx_si3218x_machine_dt_match,
-#endif
+		.name = "mt7986-si3218x",
+		.of_match_table = mt7986_si3218x_machine_dt_match,
 	},
-	.probe = mt79xx_si3218x_machine_probe,
-	.remove = mt79xx_si3218x_machine_remove,
+	.probe = mt7986_si3218x_machine_probe,
 };
 
-module_platform_driver(mt79xx_si3218x_machine);
+module_platform_driver(mt7986_si3218x_machine);
 
 /* Module information */
-MODULE_DESCRIPTION("MT79xx SI3218x ALSA SoC machine driver");
+MODULE_DESCRIPTION("MT7986 SI3218X ALSA SoC machine driver");
 MODULE_AUTHOR("Vic Wu <vic.wu@mediatek.com>");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("mt79xx si3218x soc card");
+MODULE_ALIAS("mt7986 si3218x soc card");
