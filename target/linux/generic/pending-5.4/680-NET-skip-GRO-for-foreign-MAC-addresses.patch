@@ -11,7 +11,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
 
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -1938,6 +1938,8 @@ struct net_device {
+@@ -1914,6 +1914,8 @@ struct net_device {
  	struct netdev_hw_addr_list	mc;
  	struct netdev_hw_addr_list	dev_addrs;
  
@@ -22,7 +22,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  #endif
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -827,6 +827,7 @@ struct sk_buff {
+@@ -824,6 +824,7 @@ struct sk_buff {
  	__u8			decrypted:1;
  #endif
  	__u8			scm_io_uring:1;
@@ -32,7 +32,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	__u16			tc_index;	/* traffic control index */
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -5548,6 +5548,9 @@ static enum gro_result dev_gro_receive(s
+@@ -5576,6 +5576,9 @@ static enum gro_result dev_gro_receive(s
  	int same_flow;
  	int grow;
  
@@ -42,7 +42,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	if (netif_elide_gro(skb->dev))
  		goto normal;
  
-@@ -7491,6 +7494,48 @@ static void __netdev_adjacent_dev_unlink
+@@ -7519,6 +7522,48 @@ static void __netdev_adjacent_dev_unlink
  					   &upper_dev->adj_list.lower);
  }
  
@@ -91,7 +91,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  static int __netdev_upper_dev_link(struct net_device *dev,
  				   struct net_device *upper_dev, bool master,
  				   void *upper_priv, void *upper_info,
-@@ -7541,6 +7586,7 @@ static int __netdev_upper_dev_link(struc
+@@ -7569,6 +7614,7 @@ static int __netdev_upper_dev_link(struc
  	if (ret)
  		return ret;
  
@@ -99,7 +99,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	ret = call_netdevice_notifiers_info(NETDEV_CHANGEUPPER,
  					    &changeupper_info.info);
  	ret = notifier_to_errno(ret);
-@@ -7634,6 +7680,7 @@ void netdev_upper_dev_unlink(struct net_
+@@ -7662,6 +7708,7 @@ void netdev_upper_dev_unlink(struct net_
  
  	__netdev_adjacent_dev_unlink_neighbour(dev, upper_dev);
  
@@ -107,7 +107,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER,
  				      &changeupper_info.info);
  
-@@ -8364,6 +8411,7 @@ int dev_set_mac_address(struct net_devic
+@@ -8392,6 +8439,7 @@ int dev_set_mac_address(struct net_devic
  	if (err)
  		return err;
  	dev->addr_assign_type = NET_ADDR_SET;
@@ -115,11 +115,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
  	add_device_randomness(dev->dev_addr, dev->addr_len);
  	return 0;
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -143,6 +143,18 @@ u32 eth_get_headlen(const struct net_dev
+--- a/include/linux/etherdevice.h
++++ b/include/linux/etherdevice.h
+@@ -531,6 +531,18 @@ static inline unsigned long compare_ethe
+ #endif
  }
- EXPORT_SYMBOL(eth_get_headlen);
  
 +static inline bool
 +eth_check_local_mask(const void *addr1, const void *addr2, const void *mask)
@@ -134,9 +134,9 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
 +}
 +
  /**
-  * eth_type_trans - determine the packet's protocol ID.
-  * @skb: received socket data
-@@ -174,6 +186,10 @@ __be16 eth_type_trans(struct sk_buff *sk
+  * eth_skb_pkt_type - Assign packet type if destination address does not match
+  * @skb: Assigned a packet type if address does not match @dev address
+@@ -553,6 +565,10 @@ static inline void eth_skb_pkt_type(stru
  		} else {
  			skb->pkt_type = PACKET_OTHERHOST;
  		}
@@ -145,5 +145,5 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
 +					 dev->local_addr_mask))
 +			skb->gro_skip = 1;
  	}
+ }
  
- 	/*
