@@ -66,7 +66,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	/* Per-node vmstats */
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -1169,6 +1169,11 @@ static unsigned long shrink_page_list(st
+@@ -1176,6 +1176,11 @@ static unsigned long shrink_page_list(st
  		if (!sc->may_unmap && page_mapped(page))
  			goto keep_locked;
  
@@ -78,7 +78,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  		may_enter_fs = (sc->gfp_mask & __GFP_FS) ||
  			(PageSwapCache(page) && (sc->gfp_mask & __GFP_IO));
  
-@@ -3818,6 +3823,482 @@ out:
+@@ -3825,6 +3830,482 @@ out:
  }
  
  /******************************************************************************
@@ -561,7 +561,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
   *                          state change
   ******************************************************************************/
  
-@@ -4020,6 +4501,21 @@ static int __meminit __maybe_unused lru_
+@@ -4027,6 +4508,21 @@ static int __meminit __maybe_unused lru_
  	return NOTIFY_DONE;
  }
  
@@ -583,7 +583,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  /******************************************************************************
   *                          initialization
   ******************************************************************************/
-@@ -4068,6 +4564,24 @@ static int __init init_lru_gen(void)
+@@ -4075,6 +4571,24 @@ static int __init init_lru_gen(void)
   */
  arch_initcall(init_lru_gen);
  
@@ -608,7 +608,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  #endif /* CONFIG_LRU_GEN */
  
  /*
-@@ -4086,6 +4600,12 @@ static void shrink_node_memcg(struct pgl
+@@ -4093,6 +4607,12 @@ static void shrink_node_memcg(struct pgl
  	struct blk_plug plug;
  	bool scan_adjusted;
  
@@ -621,7 +621,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	get_scan_count(lruvec, memcg, sc, nr, lru_pages);
  
  	/* Record the original scan target for proportional adjustments later */
-@@ -4560,6 +5080,9 @@ static void snapshot_refaults(struct mem
+@@ -4570,6 +5090,9 @@ static void snapshot_refaults(struct mem
  {
  	struct mem_cgroup *memcg;
  
@@ -631,7 +631,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	memcg = mem_cgroup_iter(root_memcg, NULL, NULL);
  	do {
  		unsigned long refaults;
-@@ -4922,6 +5445,11 @@ static void age_active_anon(struct pglis
+@@ -4932,6 +5455,11 @@ static void age_active_anon(struct pglis
  {
  	struct mem_cgroup *memcg;
  
@@ -643,7 +643,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	if (!total_swap_pages)
  		return;
  
-@@ -5615,6 +6143,8 @@ int kswapd_run(int nid)
+@@ -5625,6 +6153,8 @@ int kswapd_run(int nid)
  	if (pgdat->kswapd)
  		return 0;
  
@@ -652,7 +652,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	pgdat->kswapd = kthread_run(kswapd, pgdat, "kswapd%d", nid);
  	if (IS_ERR(pgdat->kswapd)) {
  		/* failure at boot is fatal */
-@@ -5637,6 +6167,7 @@ void kswapd_stop(int nid)
+@@ -5647,6 +6177,7 @@ void kswapd_stop(int nid)
  	if (kswapd) {
  		kthread_stop(kswapd);
  		NODE_DATA(nid)->kswapd = NULL;

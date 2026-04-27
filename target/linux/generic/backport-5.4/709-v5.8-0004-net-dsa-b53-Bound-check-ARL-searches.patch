@@ -18,7 +18,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 
 --- a/drivers/net/dsa/b53/b53_common.c
 +++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1715,7 +1715,7 @@ int b53_fdb_dump(struct dsa_switch *ds,
+@@ -1734,7 +1734,7 @@ int b53_fdb_dump(struct dsa_switch *ds,
  				break;
  		}
  

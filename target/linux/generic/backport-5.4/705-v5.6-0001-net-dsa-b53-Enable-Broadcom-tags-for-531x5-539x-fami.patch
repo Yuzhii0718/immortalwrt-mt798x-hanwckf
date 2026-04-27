@@ -22,7 +22,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 
 --- a/drivers/net/dsa/b53/b53_common.c
 +++ b/drivers/net/dsa/b53/b53_common.c
-@@ -371,8 +371,6 @@ static void b53_enable_vlan(struct b53_d
+@@ -376,8 +376,6 @@ static void b53_enable_vlan(struct b53_d
  		b53_read8(dev, B53_VLAN_PAGE, B53_VLAN_CTRL5, &vc5);
  	}
  
@@ -31,7 +31,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	if (enable) {
  		vc0 |= VC0_VLAN_EN | VC0_VID_CHK_EN | VC0_VID_HASH_VID;
  		vc1 |= VC1_RX_MCST_UNTAG_EN | VC1_RX_MCST_FWD_EN;
-@@ -608,6 +606,22 @@ void b53_brcm_hdr_setup(struct dsa_switc
+@@ -617,6 +615,22 @@ void b53_brcm_hdr_setup(struct dsa_switc
  		break;
  	}
  
@@ -54,7 +54,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	/* Enable Broadcom tags for IMP port */
  	b53_read8(dev, B53_MGMT_PAGE, B53_BRCM_HDR, &hdr_ctl);
  	if (tag_en)
-@@ -1910,13 +1924,29 @@ static bool b53_possible_cpu_port(struct
+@@ -1929,13 +1943,29 @@ static bool b53_possible_cpu_port(struct
  	return false;
  }
  
@@ -86,7 +86,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	return ret;
  }
  
-@@ -1926,12 +1956,10 @@ enum dsa_tag_protocol b53_get_tag_protoc
+@@ -1945,12 +1975,10 @@ enum dsa_tag_protocol b53_get_tag_protoc
  	struct b53_device *dev = ds->priv;
  
  	/* Older models (5325, 5365) support a different tag format that we do

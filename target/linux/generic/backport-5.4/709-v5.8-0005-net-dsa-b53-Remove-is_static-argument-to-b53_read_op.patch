@@ -14,7 +14,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 
 --- a/drivers/net/dsa/b53/b53_common.c
 +++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1495,8 +1495,7 @@ static int b53_arl_rw_op(struct b53_devi
+@@ -1514,8 +1514,7 @@ static int b53_arl_rw_op(struct b53_devi
  }
  
  static int b53_arl_read(struct b53_device *dev, u64 mac,
@@ -24,7 +24,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  {
  	DECLARE_BITMAP(free_bins, B53_ARLTBL_MAX_BIN_ENTRIES);
  	unsigned int i;
-@@ -1561,7 +1560,8 @@ static int b53_arl_op(struct b53_device
+@@ -1580,7 +1579,8 @@ static int b53_arl_op(struct b53_device
  	if (ret)
  		return ret;
  

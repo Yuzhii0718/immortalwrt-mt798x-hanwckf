@@ -47,7 +47,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 
 --- a/drivers/net/dsa/b53/b53_common.c
 +++ b/drivers/net/dsa/b53/b53_common.c
-@@ -587,9 +587,8 @@ EXPORT_SYMBOL(b53_disable_port);
+@@ -596,9 +596,8 @@ EXPORT_SYMBOL(b53_disable_port);
  
  void b53_brcm_hdr_setup(struct dsa_switch *ds, int port)
  {
@@ -58,7 +58,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	u8 hdr_ctl, val;
  	u16 reg;
  
-@@ -1921,7 +1920,8 @@ static bool b53_can_enable_brcm_tags(str
+@@ -1940,7 +1939,8 @@ static bool b53_can_enable_brcm_tags(str
  	return ret;
  }
  
@@ -68,7 +68,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  {
  	struct b53_device *dev = ds->priv;
  
-@@ -1931,16 +1931,22 @@ enum dsa_tag_protocol b53_get_tag_protoc
+@@ -1950,16 +1950,22 @@ enum dsa_tag_protocol b53_get_tag_protoc
  	 * misses on multicast addresses (TBD).
  	 */
  	if (is5325(dev) || is5365(dev) || is539x(dev) || is531x5(dev) ||
@@ -166,7 +166,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  }
 --- a/drivers/net/dsa/microchip/ksz9477.c
 +++ b/drivers/net/dsa/microchip/ksz9477.c
-@@ -295,7 +295,8 @@ static void ksz9477_port_init_cnt(struct
+@@ -293,7 +293,8 @@ static void ksz9477_port_init_cnt(struct
  }
  
  static enum dsa_tag_protocol ksz9477_get_tag_protocol(struct dsa_switch *ds,
@@ -202,7 +202,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  }
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -4892,7 +4892,8 @@ static struct mv88e6xxx_chip *mv88e6xxx_
+@@ -4936,7 +4936,8 @@ static struct mv88e6xxx_chip *mv88e6xxx_
  }
  
  static enum dsa_tag_protocol mv88e6xxx_get_tag_protocol(struct dsa_switch *ds,
@@ -238,7 +238,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	 *
 --- a/drivers/net/dsa/sja1105/sja1105_main.c
 +++ b/drivers/net/dsa/sja1105/sja1105_main.c
-@@ -1591,7 +1591,8 @@ static int sja1105_setup_8021q_tagging(s
+@@ -1587,7 +1587,8 @@ static int sja1105_setup_8021q_tagging(s
  }
  
  static enum dsa_tag_protocol
@@ -250,7 +250,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  }
 --- a/drivers/net/dsa/vitesse-vsc73xx-core.c
 +++ b/drivers/net/dsa/vitesse-vsc73xx-core.c
-@@ -542,7 +542,8 @@ static int vsc73xx_phy_write(struct dsa_
+@@ -548,7 +548,8 @@ static int vsc73xx_phy_write(struct dsa_
  }
  
  static enum dsa_tag_protocol vsc73xx_get_tag_protocol(struct dsa_switch *ds,

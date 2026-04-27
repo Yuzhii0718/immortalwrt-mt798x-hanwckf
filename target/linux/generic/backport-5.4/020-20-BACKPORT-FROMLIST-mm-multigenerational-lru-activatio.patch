@@ -104,7 +104,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	return false;
 --- a/include/linux/mm.h
 +++ b/include/linux/mm.h
-@@ -1515,6 +1515,23 @@ void unmap_mapping_pages(struct address_
+@@ -1526,6 +1526,23 @@ void unmap_mapping_pages(struct address_
  		pgoff_t start, pgoff_t nr, bool even_cows);
  void unmap_mapping_range(struct address_space *mapping,
  		loff_t const holebegin, loff_t const holelen, int even_cows);
@@ -128,7 +128,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  #else
  static inline vm_fault_t handle_mm_fault(struct vm_area_struct *vma,
  		unsigned long address, unsigned int flags)
-@@ -1536,6 +1553,19 @@ static inline void unmap_mapping_pages(s
+@@ -1547,6 +1564,19 @@ static inline void unmap_mapping_pages(s
  		pgoff_t start, pgoff_t nr, bool even_cows) { }
  static inline void unmap_mapping_range(struct address_space *mapping,
  		loff_t const holebegin, loff_t const holelen, int even_cows) { }
@@ -251,7 +251,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  #ifdef CONFIG_COMPAT_BRK
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -1922,7 +1922,7 @@ static enum oom_status mem_cgroup_oom(st
+@@ -1925,7 +1925,7 @@ static enum oom_status mem_cgroup_oom(st
  	 * victim and then we have to bail out from the charge path.
  	 */
  	if (memcg->oom_kill_disable) {
@@ -270,7 +270,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
  #include <asm/io.h>
  #include <asm/mmu_context.h>
-@@ -2887,6 +2888,19 @@ void unmap_mapping_range(struct address_
+@@ -2918,6 +2919,19 @@ void unmap_mapping_range(struct address_
  }
  EXPORT_SYMBOL(unmap_mapping_range);
  
@@ -290,7 +290,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  /*
   * We enter with non-exclusive mmap_sem (to exclude vma changes,
   * but allow concurrent faults), and pte mapped but not yet locked.
-@@ -2943,6 +2957,7 @@ vm_fault_t do_swap_page(struct vm_fault
+@@ -2974,6 +2988,7 @@ vm_fault_t do_swap_page(struct vm_fault
  				__SetPageLocked(page);
  				__SetPageSwapBacked(page);
  				set_page_private(page, entry.val);
@@ -298,7 +298,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  				lru_cache_add_anon(page);
  				swap_readpage(page, true);
  			}
-@@ -4174,7 +4189,7 @@ vm_fault_t handle_mm_fault(struct vm_are
+@@ -4205,7 +4220,7 @@ vm_fault_t handle_mm_fault(struct vm_are
  	 * space.  Kernel faults are handled more gracefully.
  	 */
  	if (flags & FAULT_FLAG_USER)
@@ -307,7 +307,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
  	if (unlikely(is_vm_hugetlb_page(vma)))
  		ret = hugetlb_fault(vma->vm_mm, vma, address, flags);
-@@ -4182,7 +4197,7 @@ vm_fault_t handle_mm_fault(struct vm_are
+@@ -4213,7 +4228,7 @@ vm_fault_t handle_mm_fault(struct vm_are
  		ret = __handle_mm_fault(vma, address, flags);
  
  	if (flags & FAULT_FLAG_USER) {
@@ -422,7 +422,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  			return new_page;
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -907,6 +907,7 @@ static int __remove_mapping(struct addre
+@@ -914,6 +914,7 @@ static int __remove_mapping(struct addre
  {
  	unsigned long flags;
  	int refcount;
@@ -430,7 +430,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
  	BUG_ON(!PageLocked(page));
  	BUG_ON(mapping != page_mapping(page));
-@@ -948,13 +949,15 @@ static int __remove_mapping(struct addre
+@@ -955,13 +956,15 @@ static int __remove_mapping(struct addre
  
  	if (PageSwapCache(page)) {
  		swp_entry_t swap = { .val = page_private(page) };
@@ -448,7 +448,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
  		freepage = mapping->a_ops->freepage;
  		/*
-@@ -2623,6 +2626,93 @@ static bool __maybe_unused seq_is_valid(
+@@ -2630,6 +2633,93 @@ static bool __maybe_unused seq_is_valid(
  }
  
  /******************************************************************************

@@ -68,7 +68,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
 
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -1879,7 +1879,7 @@ static unsigned noinline_for_stack move_
+@@ -1886,7 +1886,7 @@ static unsigned noinline_for_stack move_
  						     struct list_head *list)
  {
  	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
@@ -77,7 +77,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	LIST_HEAD(pages_to_free);
  	struct page *page;
  	enum lru_list lru;
-@@ -1887,8 +1887,8 @@ static unsigned noinline_for_stack move_
+@@ -1894,8 +1894,8 @@ static unsigned noinline_for_stack move_
  	while (!list_empty(list)) {
  		page = lru_to_page(list);
  		VM_BUG_ON_PAGE(PageLRU(page), page);
@@ -87,7 +87,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  			spin_unlock_irq(&pgdat->lru_lock);
  			putback_lru_page(page);
  			spin_lock_irq(&pgdat->lru_lock);
-@@ -1898,10 +1898,7 @@ static unsigned noinline_for_stack move_
+@@ -1905,10 +1905,7 @@ static unsigned noinline_for_stack move_
  
  		SetPageLRU(page);
  		lru = page_lru(page);
@@ -99,7 +99,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
  		if (put_page_testzero(page)) {
  			__ClearPageLRU(page);
-@@ -1915,7 +1912,7 @@ static unsigned noinline_for_stack move_
+@@ -1922,7 +1919,7 @@ static unsigned noinline_for_stack move_
  			} else
  				list_add(&page->lru, &pages_to_free);
  		} else {

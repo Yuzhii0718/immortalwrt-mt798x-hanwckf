@@ -16,7 +16,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 
 --- a/drivers/net/dsa/b53/b53_common.c
 +++ b/drivers/net/dsa/b53/b53_common.c
-@@ -696,7 +696,9 @@ int b53_configure_vlan(struct dsa_switch
+@@ -714,7 +714,9 @@ int b53_configure_vlan(struct dsa_switch
  {
  	struct b53_device *dev = ds->priv;
  	struct b53_vlan vl = { 0 };
@@ -26,7 +26,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  
  	def_vid = b53_default_pvid(dev);
  
-@@ -717,6 +719,19 @@ int b53_configure_vlan(struct dsa_switch
+@@ -735,6 +737,19 @@ int b53_configure_vlan(struct dsa_switch
  	if (!is5325(dev) && !is5365(dev))
  		b53_set_jumbo(dev, dev->enable_jumbo, false);
  

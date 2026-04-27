@@ -250,7 +250,7 @@ Tested-by: Yu Zhao <yuzhao@chromium.org>
  static int scan_swap_map_slots(struct swap_info_struct *si,
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -948,7 +948,7 @@ static int __remove_mapping(struct addre
+@@ -955,7 +955,7 @@ static int __remove_mapping(struct addre
  	if (PageSwapCache(page)) {
  		swp_entry_t swap = { .val = page_private(page) };
  		mem_cgroup_swapout(page, swap);

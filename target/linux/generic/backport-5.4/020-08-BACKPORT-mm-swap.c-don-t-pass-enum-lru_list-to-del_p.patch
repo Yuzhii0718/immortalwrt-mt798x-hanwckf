@@ -73,7 +73,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -2741,7 +2741,7 @@ static void lock_page_lru(struct page *p
+@@ -2750,7 +2750,7 @@ static void lock_page_lru(struct page *p
  
  		lruvec = mem_cgroup_page_lruvec(page, pgdat);
  		ClearPageLRU(page);
@@ -180,7 +180,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  		__ClearPageWaiters(page);
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -1807,10 +1807,9 @@ int isolate_lru_page(struct page *page)
+@@ -1814,10 +1814,9 @@ int isolate_lru_page(struct page *page)
  		spin_lock_irq(&pgdat->lru_lock);
  		lruvec = mem_cgroup_page_lruvec(page, pgdat);
  		if (PageLRU(page)) {
@@ -192,7 +192,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  			ret = 0;
  		}
  		spin_unlock_irq(&pgdat->lru_lock);
-@@ -1882,7 +1881,6 @@ static unsigned noinline_for_stack move_
+@@ -1889,7 +1888,6 @@ static unsigned noinline_for_stack move_
  	int nr_moved = 0;
  	LIST_HEAD(pages_to_free);
  	struct page *page;
@@ -200,7 +200,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
  	while (!list_empty(list)) {
  		page = lru_to_page(list);
-@@ -1897,13 +1895,12 @@ static unsigned noinline_for_stack move_
+@@ -1904,13 +1902,12 @@ static unsigned noinline_for_stack move_
  		lruvec = mem_cgroup_page_lruvec(page, pgdat);
  
  		SetPageLRU(page);
@@ -215,7 +215,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
  			if (unlikely(PageCompound(page))) {
  				spin_unlock_irq(&pgdat->lru_lock);
-@@ -4380,8 +4377,8 @@ void check_move_unevictable_pages(struct
+@@ -4390,8 +4387,8 @@ void check_move_unevictable_pages(struct
  
  		if (page_evictable(page)) {
  			VM_BUG_ON_PAGE(PageActive(page), page);

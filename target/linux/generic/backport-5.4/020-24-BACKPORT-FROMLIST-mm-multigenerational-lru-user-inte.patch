@@ -68,7 +68,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
  #include <asm/tlbflush.h>
  #include <asm/div64.h>
-@@ -4517,6 +4519,401 @@ static void lru_gen_stop_kswapd(int nid)
+@@ -4524,6 +4526,401 @@ static void lru_gen_stop_kswapd(int nid)
  }
  
  /******************************************************************************
@@ -470,7 +470,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
   *                          initialization
   ******************************************************************************/
  
-@@ -4556,6 +4953,12 @@ static int __init init_lru_gen(void)
+@@ -4563,6 +4960,12 @@ static int __init init_lru_gen(void)
  	if (hotplug_memory_notifier(lru_gen_online_mem, 0))
  		pr_err("lru_gen: failed to subscribe hotplug notifications\n");
  

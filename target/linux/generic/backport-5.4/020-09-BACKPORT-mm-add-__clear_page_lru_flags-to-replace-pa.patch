@@ -107,7 +107,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  		__ClearPageWaiters(page);
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -1898,9 +1898,8 @@ static unsigned noinline_for_stack move_
+@@ -1905,9 +1905,8 @@ static unsigned noinline_for_stack move_
  		add_page_to_lru_list(page, lruvec);
  
  		if (put_page_testzero(page)) {

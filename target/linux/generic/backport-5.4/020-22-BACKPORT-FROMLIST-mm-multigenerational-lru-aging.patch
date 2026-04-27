@@ -146,7 +146,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
  #include <asm/tlbflush.h>
  #include <asm/div64.h>
-@@ -3030,6 +3032,792 @@ done:
+@@ -3037,6 +3039,792 @@ done:
  }
  
  /******************************************************************************
@@ -939,7 +939,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
   *                          state change
   ******************************************************************************/
  
-@@ -3259,6 +4047,10 @@ static int __init init_lru_gen(void)
+@@ -3266,6 +4054,10 @@ static int __init init_lru_gen(void)
  	BUILD_BUG_ON(BIT(LRU_GEN_WIDTH) <= MAX_NR_GENS);
  	BUILD_BUG_ON(sizeof(MM_STAT_CODES) != NR_MM_STATS + 1);
  

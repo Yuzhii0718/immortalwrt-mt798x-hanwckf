@@ -40,7 +40,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
 
 --- a/fs/exec.c
 +++ b/fs/exec.c
-@@ -1059,6 +1059,7 @@ static int exec_mmap(struct mm_struct *m
+@@ -1061,6 +1061,7 @@ static int exec_mmap(struct mm_struct *m
  	active_mm = tsk->active_mm;
  	tsk->active_mm = mm;
  	tsk->mm = mm;
@@ -48,7 +48,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	/*
  	 * This prevents preemption while active_mm is being loaded and
  	 * it and mm are being updated, which could cause problems for
-@@ -1069,6 +1070,7 @@ static int exec_mmap(struct mm_struct *m
+@@ -1071,6 +1072,7 @@ static int exec_mmap(struct mm_struct *m
  	if (!IS_ENABLED(CONFIG_ARCH_WANT_IRQS_OFF_ACTIVATE_MM))
  		local_irq_enable();
  	activate_mm(active_mm, mm);
@@ -210,7 +210,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  				unsigned long start, unsigned long end);
 --- a/kernel/exit.c
 +++ b/kernel/exit.c
-@@ -470,6 +470,7 @@ assign_new_owner:
+@@ -472,6 +472,7 @@ assign_new_owner:
  		goto retry;
  	}
  	WRITE_ONCE(mm->owner, c);
@@ -228,7 +228,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  }
  
  #define allocate_mm()	(kmem_cache_alloc(mm_cachep, GFP_KERNEL))
-@@ -1045,6 +1046,7 @@ static struct mm_struct *mm_init(struct
+@@ -1053,6 +1054,7 @@ static struct mm_struct *mm_init(struct
  		goto fail_nocontext;
  
  	mm->user_ns = get_user_ns(user_ns);
@@ -236,7 +236,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	return mm;
  
  fail_nocontext:
-@@ -1087,6 +1089,7 @@ static inline void __mmput(struct mm_str
+@@ -1095,6 +1097,7 @@ static inline void __mmput(struct mm_str
  	}
  	if (mm->binfmt)
  		module_put(mm->binfmt->module);
@@ -244,7 +244,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	mmdrop(mm);
  }
  
-@@ -2394,6 +2397,13 @@ long _do_fork(struct kernel_clone_args *
+@@ -2484,6 +2487,13 @@ long _do_fork(struct kernel_clone_args *
  		get_task_struct(p);
  	}
  
@@ -260,7 +260,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	/* forking complete and child started to run, tell ptracer */
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -3471,6 +3471,7 @@ context_switch(struct rq *rq, struct tas
+@@ -3473,6 +3473,7 @@ context_switch(struct rq *rq, struct tas
  		 * finish_task_switch()'s mmdrop().
  		 */
  		switch_mm_irqs_off(prev->active_mm, next->mm, next);
@@ -268,7 +268,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
  		if (!prev->mm) {                        // from kernel
  			/* will mmdrop() in finish_task_switch(). */
-@@ -6286,6 +6287,7 @@ void idle_task_exit(void)
+@@ -6288,6 +6289,7 @@ void idle_task_exit(void)
  
  	if (mm != &init_mm) {
  		switch_mm(mm, &init_mm, current);
@@ -278,7 +278,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -5102,6 +5102,7 @@ static void __mem_cgroup_free(struct mem
+@@ -5114,6 +5114,7 @@ static void __mem_cgroup_free(struct mem
  		free_mem_cgroup_per_node_info(memcg, node);
  	free_percpu(memcg->vmstats_percpu);
  	free_percpu(memcg->vmstats_local);
@@ -286,7 +286,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	kfree(memcg);
  }
  
-@@ -5152,6 +5153,9 @@ static struct mem_cgroup *mem_cgroup_all
+@@ -5164,6 +5165,9 @@ static struct mem_cgroup *mem_cgroup_all
  		if (alloc_mem_cgroup_per_node_info(memcg, node))
  			goto fail;
  
@@ -296,7 +296,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	if (memcg_wb_domain_init(memcg, GFP_KERNEL))
  		goto fail;
  
-@@ -6070,6 +6074,29 @@ static void mem_cgroup_move_task(void)
+@@ -6082,6 +6086,29 @@ static void mem_cgroup_move_task(void)
  }
  #endif
  
@@ -326,7 +326,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  /*
   * Cgroup retains root cgroups across [un]mount cycles making it necessary
   * to verify whether we're attached to the default hierarchy on each mount
-@@ -6370,6 +6397,7 @@ struct cgroup_subsys memory_cgrp_subsys
+@@ -6382,6 +6409,7 @@ struct cgroup_subsys memory_cgrp_subsys
  	.css_free = mem_cgroup_css_free,
  	.css_reset = mem_cgroup_css_reset,
  	.can_attach = mem_cgroup_can_attach,
@@ -346,7 +346,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  #ifdef finish_arch_post_lock_switch
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -2713,6 +2713,323 @@ static bool positive_ctrl_err(struct con
+@@ -2720,6 +2720,323 @@ static bool positive_ctrl_err(struct con
  }
  
  /******************************************************************************
@@ -670,7 +670,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
   *                          state change
   ******************************************************************************/
  
-@@ -2940,6 +3257,13 @@ static int __init init_lru_gen(void)
+@@ -2947,6 +3264,13 @@ static int __init init_lru_gen(void)
  {
  	BUILD_BUG_ON(MIN_NR_GENS + 1 >= MAX_NR_GENS);
  	BUILD_BUG_ON(BIT(LRU_GEN_WIDTH) <= MAX_NR_GENS);

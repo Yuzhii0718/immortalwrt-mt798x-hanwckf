@@ -68,7 +68,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  }
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -2757,7 +2757,7 @@ static void unlock_page_lru(struct page
+@@ -2766,7 +2766,7 @@ static void unlock_page_lru(struct page
  		lruvec = mem_cgroup_page_lruvec(page, pgdat);
  		VM_BUG_ON_PAGE(PageLRU(page), page);
  		SetPageLRU(page);
@@ -154,7 +154,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -1898,7 +1898,7 @@ static unsigned noinline_for_stack move_
+@@ -1905,7 +1905,7 @@ static unsigned noinline_for_stack move_
  
  		SetPageLRU(page);
  		lru = page_lru(page);
@@ -163,7 +163,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  
  		if (put_page_testzero(page)) {
  			__ClearPageLRU(page);
-@@ -4379,12 +4379,10 @@ void check_move_unevictable_pages(struct
+@@ -4389,12 +4389,10 @@ void check_move_unevictable_pages(struct
  			continue;
  
  		if (page_evictable(page)) {

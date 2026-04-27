@@ -71,7 +71,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  #endif
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -3984,8 +3984,8 @@ static int memcg_stat_show(struct seq_fi
+@@ -3993,8 +3993,8 @@ static int memcg_stat_show(struct seq_fi
  		pg_data_t *pgdat;
  		struct mem_cgroup_per_node *mz;
  		struct zone_reclaim_stat *rstat;
@@ -84,7 +84,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  			mz = mem_cgroup_nodeinfo(memcg, pgdat->node_id);
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -2307,7 +2307,7 @@ static void get_scan_count(struct lruvec
+@@ -2314,7 +2314,7 @@ static void get_scan_count(struct lruvec
  {
  	int swappiness = mem_cgroup_swappiness(memcg);
  	struct zone_reclaim_stat *reclaim_stat = &lruvec->reclaim_stat;
@@ -93,7 +93,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  	u64 denominator = 0;	/* gcc */
  	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
  	unsigned long anon_prio, file_prio;
-@@ -2418,8 +2418,6 @@ static void get_scan_count(struct lruvec
+@@ -2425,8 +2425,6 @@ static void get_scan_count(struct lruvec
  	 * Because workloads change over time (and to avoid overflow)
  	 * we keep these statistics as a floating average, which ends
  	 * up weighing recent references more than old ones.

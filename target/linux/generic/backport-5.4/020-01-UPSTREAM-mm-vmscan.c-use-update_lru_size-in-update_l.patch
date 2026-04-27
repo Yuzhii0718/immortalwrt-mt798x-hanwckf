@@ -33,7 +33,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
 
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -1655,10 +1655,7 @@ static __always_inline void update_lru_s
+@@ -1662,10 +1662,7 @@ static __always_inline void update_lru_s
  		if (!nr_zone_taken[zid])
  			continue;
  

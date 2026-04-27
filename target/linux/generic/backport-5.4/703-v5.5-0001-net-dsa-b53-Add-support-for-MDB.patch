@@ -18,7 +18,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 
 --- a/drivers/net/dsa/b53/b53_common.c
 +++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1549,11 +1549,25 @@ static int b53_arl_op(struct b53_device
+@@ -1568,11 +1568,25 @@ static int b53_arl_op(struct b53_device
  		break;
  	}
  
@@ -46,7 +46,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	memcpy(ent.mac, addr, ETH_ALEN);
  	b53_arl_from_entry(&mac_vid, &fwd_entry, &ent);
  
-@@ -1672,6 +1686,47 @@ int b53_fdb_dump(struct dsa_switch *ds,
+@@ -1691,6 +1705,47 @@ int b53_fdb_dump(struct dsa_switch *ds,
  }
  EXPORT_SYMBOL(b53_fdb_dump);
  
@@ -94,7 +94,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  int b53_br_join(struct dsa_switch *ds, int port, struct net_device *br)
  {
  	struct b53_device *dev = ds->priv;
-@@ -2050,6 +2105,9 @@ static const struct dsa_switch_ops b53_s
+@@ -2069,6 +2124,9 @@ static const struct dsa_switch_ops b53_s
  	.port_fdb_del		= b53_fdb_del,
  	.port_mirror_add	= b53_mirror_add,
  	.port_mirror_del	= b53_mirror_del,

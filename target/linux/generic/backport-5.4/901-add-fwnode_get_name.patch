@@ -21,11 +21,9 @@ Signed-off-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
  include/linux/property.h |  1 +
  6 files changed, 58 insertions(+)
 
-diff --git a/drivers/acpi/property.c b/drivers/acpi/property.c
-index 3eacf474e1e39b..a501c1c584b5ce 100644
 --- a/drivers/acpi/property.c
 +++ b/drivers/acpi/property.c
-@@ -1317,6 +1317,31 @@ acpi_fwnode_get_reference_args(const struct fwnode_handle *fwnode,
+@@ -1349,6 +1349,31 @@ acpi_fwnode_get_reference_args(const str
  						  args_count, args);
  }
  
@@ -57,7 +55,7 @@ index 3eacf474e1e39b..a501c1c584b5ce 100644
  static struct fwnode_handle *
  acpi_fwnode_get_parent(struct fwnode_handle *fwnode)
  {
-@@ -1357,6 +1382,7 @@ acpi_fwnode_device_get_match_data(const struct fwnode_handle *fwnode,
+@@ -1389,6 +1414,7 @@ acpi_fwnode_device_get_match_data(const
  		.get_parent = acpi_node_get_parent,			\
  		.get_next_child_node = acpi_get_next_subnode,		\
  		.get_named_child_node = acpi_fwnode_get_named_child_node, \
@@ -65,15 +63,12 @@ index 3eacf474e1e39b..a501c1c584b5ce 100644
  		.get_reference_args = acpi_fwnode_get_reference_args,	\
  		.graph_get_next_endpoint =				\
  			acpi_graph_get_next_endpoint,			\
-diff --git a/drivers/base/property.c b/drivers/base/property.c
-index f2e555e68b56a4..9b5ec88e72d8bf 100644
 --- a/drivers/base/property.c
 +++ b/drivers/base/property.c
-@@ -556,6 +556,17 @@ int device_add_properties(struct device *dev,
- }
+@@ -557,6 +557,17 @@ int device_add_properties(struct device
  EXPORT_SYMBOL_GPL(device_add_properties);
  
-+/**
+ /**
 + * fwnode_get_name - Return the name of a node
 + * @fwnode: The firmware node
 + *
@@ -84,14 +79,13 @@ index f2e555e68b56a4..9b5ec88e72d8bf 100644
 +	return fwnode_call_ptr_op(fwnode, get_name);
 +}
 +
- /**
-  * fwnode_get_parent - Return parent firwmare node
++/**
+  * fwnode_get_next_parent - Iterate to the node's parent
   * @fwnode: Firmware whose parent is retrieved
-diff --git a/drivers/base/swnode.c b/drivers/base/swnode.c
-index 9cde143201f5f4..eacca6a6626b7a 100644
+  *
 --- a/drivers/base/swnode.c
 +++ b/drivers/base/swnode.c
-@@ -515,6 +515,17 @@ static int software_node_read_string_array(const struct fwnode_handle *fwnode,
+@@ -515,6 +515,17 @@ static int software_node_read_string_arr
  						propname, val, nval);
  }
  
@@ -109,7 +103,7 @@ index 9cde143201f5f4..eacca6a6626b7a 100644
  static struct fwnode_handle *
  software_node_get_parent(const struct fwnode_handle *fwnode)
  {
-@@ -615,6 +626,7 @@ static const struct fwnode_operations software_node_ops = {
+@@ -622,6 +633,7 @@ static const struct fwnode_operations so
  	.property_present = software_node_property_present,
  	.property_read_int_array = software_node_read_int_array,
  	.property_read_string_array = software_node_read_string_array,
@@ -117,11 +111,9 @@ index 9cde143201f5f4..eacca6a6626b7a 100644
  	.get_parent = software_node_get_parent,
  	.get_next_child_node = software_node_get_next_child,
  	.get_named_child_node = software_node_get_named_child_node,
-diff --git a/drivers/of/property.c b/drivers/of/property.c
-index d7fa75e31f2241..5bed634551ea65 100644
 --- a/drivers/of/property.c
 +++ b/drivers/of/property.c
-@@ -872,6 +872,11 @@ of_fwnode_property_read_string_array(const struct fwnode_handle *fwnode,
+@@ -890,6 +890,11 @@ of_fwnode_property_read_string_array(con
  		of_property_count_strings(node, propname);
  }
  
@@ -133,7 +125,7 @@ index d7fa75e31f2241..5bed634551ea65 100644
  static struct fwnode_handle *
  of_fwnode_get_parent(const struct fwnode_handle *fwnode)
  {
-@@ -993,6 +998,7 @@ const struct fwnode_operations of_fwnode_ops = {
+@@ -1013,6 +1018,7 @@ const struct fwnode_operations of_fwnode
  	.property_present = of_fwnode_property_present,
  	.property_read_int_array = of_fwnode_property_read_int_array,
  	.property_read_string_array = of_fwnode_property_read_string_array,
@@ -141,8 +133,6 @@ index d7fa75e31f2241..5bed634551ea65 100644
  	.get_parent = of_fwnode_get_parent,
  	.get_next_child_node = of_fwnode_get_next_child_node,
  	.get_named_child_node = of_fwnode_get_named_child_node,
-diff --git a/include/linux/fwnode.h b/include/linux/fwnode.h
-index ababd6bc82f33c..2bbf55739a5736 100644
 --- a/include/linux/fwnode.h
 +++ b/include/linux/fwnode.h
 @@ -56,6 +56,7 @@ struct fwnode_reference_args {
@@ -161,11 +151,9 @@ index ababd6bc82f33c..2bbf55739a5736 100644
  	struct fwnode_handle *(*get_parent)(const struct fwnode_handle *fwnode);
  	struct fwnode_handle *
  	(*get_next_child_node)(const struct fwnode_handle *fwnode,
-diff --git a/include/linux/property.h b/include/linux/property.h
-index ea27c5811e1b32..afa84c47bf169a 100644
 --- a/include/linux/property.h
 +++ b/include/linux/property.h
-@@ -80,6 +80,7 @@ struct fwnode_handle *fwnode_find_reference(const struct fwnode_handle *fwnode,
+@@ -80,6 +80,7 @@ struct fwnode_handle *fwnode_find_refere
  					    const char *name,
  					    unsigned int index);
  

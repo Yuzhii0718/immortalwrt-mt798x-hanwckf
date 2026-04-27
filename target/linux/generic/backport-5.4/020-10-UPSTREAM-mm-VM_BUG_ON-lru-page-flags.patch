@@ -76,7 +76,7 @@ Commit-Queue: Yu Zhao <yuzhao@chromium.org>
  		}
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -4375,7 +4375,6 @@ void check_move_unevictable_pages(struct
+@@ -4385,7 +4385,6 @@ void check_move_unevictable_pages(struct
  			continue;
  
  		if (page_evictable(page)) {

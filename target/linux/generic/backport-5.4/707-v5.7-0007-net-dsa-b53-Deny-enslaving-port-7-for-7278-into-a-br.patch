@@ -16,7 +16,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 
 --- a/drivers/net/dsa/b53/b53_common.c
 +++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1770,6 +1770,12 @@ int b53_br_join(struct dsa_switch *ds, i
+@@ -1789,6 +1789,12 @@ int b53_br_join(struct dsa_switch *ds, i
  	u16 pvlan, reg;
  	unsigned int i;
  
