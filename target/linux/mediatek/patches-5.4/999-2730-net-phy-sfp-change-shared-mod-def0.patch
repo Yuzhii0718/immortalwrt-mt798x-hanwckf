@@ -1,0 +1,38 @@
+From c576ce67488bc8b0285933f315cb183c9171f199 Mon Sep 17 00:00:00 2001
+From: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
+Date: Thu, 7 Sep 2023 12:01:57 +0800
+Subject: [PATCH] 999-2730-net-phy-sfp-change-shared-mod-def0
+
+---
+ drivers/net/phy/sfp.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+--- a/drivers/net/phy/sfp.c
++++ b/drivers/net/phy/sfp.c
+@@ -153,7 +153,7 @@ static const char *gpio_of_names[] = {
+ };
+ 
+ static const enum gpiod_flags gpio_flags[] = {
+-	GPIOD_IN,
++	GPIOD_IN | GPIOD_FLAGS_BIT_NONEXCLUSIVE,
+ 	GPIOD_IN,
+ 	GPIOD_IN,
+ 	GPIOD_ASIS,
+@@ -571,7 +571,7 @@ static unsigned int sfp_gpio_get_state(s
+ 	unsigned int i, state, v;
+ 
+ 	for (i = state = 0; i < GPIO_MAX; i++) {
+-		if (gpio_flags[i] != GPIOD_IN || !sfp->gpio[i])
++		if (((gpio_flags[i] & GPIOD_IN) != GPIOD_IN) || !sfp->gpio[i])
+ 			continue;
+ 
+ 		v = gpiod_get_value_cansleep(sfp->gpio[i]);
+@@ -2871,7 +2871,7 @@ static int sfp_probe(struct platform_dev
+ 	}
+ 
+ 	for (i = 0; i < GPIO_MAX; i++) {
+-		if (gpio_flags[i] != GPIOD_IN || !sfp->gpio[i])
++		if (((gpio_flags[i] & GPIOD_IN) != GPIOD_IN) || !sfp->gpio[i])
+ 			continue;
+ 
+ 		sfp->gpio_irq[i] = gpiod_to_irq(sfp->gpio[i]);

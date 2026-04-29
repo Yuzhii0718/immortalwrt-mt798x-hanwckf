@@ -16,8 +16,6 @@ Subject: [PATCH]
  8 files changed, 403 insertions(+), 1 deletion(-)
  create mode 100644 drivers/net/phy/linkmode.c
 
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 8ea612a85..437ff2a2c 100644
 --- a/drivers/net/phy/Makefile
 +++ b/drivers/net/phy/Makefile
 @@ -1,7 +1,8 @@
@@ -30,9 +28,6 @@ index 8ea612a85..437ff2a2c 100644
  mdio-bus-y			+= mdio_bus.o mdio_device.o
  
  ifdef CONFIG_MDIO_DEVICE
-diff --git a/drivers/net/phy/linkmode.c b/drivers/net/phy/linkmode.c
-new file mode 100644
-index 000000000..a5a347bca
 --- /dev/null
 +++ b/drivers/net/phy/linkmode.c
 @@ -0,0 +1,95 @@
@@ -131,11 +126,9 @@ index 000000000..a5a347bca
 +			 rx ^ tx);
 +}
 +EXPORT_SYMBOL_GPL(linkmode_set_pause);
-diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
-index 9c76517ea..6b63b9839 100644
 --- a/drivers/net/phy/phylink.c
 +++ b/drivers/net/phy/phylink.c
-@@ -2185,4 +2185,192 @@ void phylink_helper_basex_speed(struct phylink_link_state *state)
+@@ -2264,4 +2264,192 @@ void phylink_helper_basex_speed(struct p
  }
  EXPORT_SYMBOL_GPL(phylink_helper_basex_speed);
  
@@ -328,11 +321,9 @@ index 9c76517ea..6b63b9839 100644
 +EXPORT_SYMBOL_GPL(phylink_mii_c22_pcs_encode_advertisement);
 +
  MODULE_LICENSE("GPL v2");
-diff --git a/include/linux/linkmode.h b/include/linux/linkmode.h
-index a99c58866..d38da4e89 100644
 --- a/include/linux/linkmode.h
 +++ b/include/linux/linkmode.h
-@@ -82,4 +82,10 @@ static inline int linkmode_equal(const unsigned long *src1,
+@@ -82,4 +82,10 @@ static inline int linkmode_equal(const u
  	return bitmap_equal(src1, src2, __ETHTOOL_LINK_MODE_MASK_NBITS);
  }
  
@@ -343,15 +334,12 @@ index a99c58866..d38da4e89 100644
 +void linkmode_set_pause(unsigned long *advertisement, bool tx, bool rx);
 +
  #endif /* __LINKMODE_H */
-diff --git a/include/linux/mii.h b/include/linux/mii.h
-index 4ce8901a1..54b7f64b0 100644
 --- a/include/linux/mii.h
 +++ b/include/linux/mii.h
-@@ -485,6 +485,45 @@ static inline u32 linkmode_adv_to_lcl_adv_t(unsigned long *advertising)
- 	return lcl_adv;
+@@ -486,6 +486,45 @@ static inline u32 linkmode_adv_to_lcl_ad
  }
  
-+/**
+ /**
 + * mii_lpa_mod_linkmode_x - decode the link partner's config_reg to linkmodes
 + * @linkmodes: link modes array
 + * @lpa: config_reg word from link partner
@@ -390,14 +378,13 @@ index 4ce8901a1..54b7f64b0 100644
 +	return adv;
 +}
 +
- /**
++/**
   * mii_advertise_flowctrl - get flow control advertisement flags
   * @cap: Flow control capabilities (FLOW_CTRL_RX, FLOW_CTRL_TX or both)
-diff --git a/include/linux/phylink.h b/include/linux/phylink.h
-index ba0f09d02..48ff9fead 100644
+  */
 --- a/include/linux/phylink.h
 +++ b/include/linux/phylink.h
-@@ -490,4 +490,34 @@ int phylink_mii_ioctl(struct phylink *, struct ifreq *, int);
+@@ -490,4 +490,34 @@ int phylink_mii_ioctl(struct phylink *,
  void phylink_set_port_modes(unsigned long *bits);
  void phylink_helper_basex_speed(struct phylink_link_state *state);
  
@@ -432,11 +419,9 @@ index ba0f09d02..48ff9fead 100644
 +void phylink_decode_usxgmii_word(struct phylink_link_state *state,
 +				 uint16_t lpa);
  #endif
-diff --git a/include/uapi/linux/mdio.h b/include/uapi/linux/mdio.h
-index 4bcb41c71..3f302e252 100644
 --- a/include/uapi/linux/mdio.h
 +++ b/include/uapi/linux/mdio.h
-@@ -324,4 +324,30 @@ static inline __u16 mdio_phy_id_c45(int prtad, int devad)
+@@ -324,4 +324,30 @@ static inline __u16 mdio_phy_id_c45(int
  	return MDIO_PHY_ID_C45 | (prtad << 5) | devad;
  }
  
@@ -467,8 +452,6 @@ index 4bcb41c71..3f302e252 100644
 +#define MDIO_USXGMII_LINK		0x8000	/* PHY link with copper-side partner */
 +
  #endif /* _UAPI__LINUX_MDIO_H__ */
-diff --git a/include/uapi/linux/mii.h b/include/uapi/linux/mii.h
-index 51b48e4be..90f9b4e1b 100644
 --- a/include/uapi/linux/mii.h
 +++ b/include/uapi/linux/mii.h
 @@ -131,6 +131,23 @@
@@ -495,6 +478,3 @@ index 51b48e4be..90f9b4e1b 100644
  /* 1000BASE-T Control register */
  #define ADVERTISE_1000FULL	0x0200  /* Advertise 1000BASE-T full duplex */
  #define ADVERTISE_1000HALF	0x0100  /* Advertise 1000BASE-T half duplex */
--- 
-2.34.1
-

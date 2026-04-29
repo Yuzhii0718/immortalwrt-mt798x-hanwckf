@@ -1,0 +1,21 @@
+From 89740f80939ddd9b73648da2a97c8f31ae16050a Mon Sep 17 00:00:00 2001
+From: Sam Shih <sam.shih@mediatek.com>
+Date: Fri, 2 Jun 2023 13:06:22 +0800
+Subject: [PATCH] 
+ [spi-and-storage][999-2376-drivers-spi-mt65xx-add-dts-buswidth-flow.patch]
+
+---
+ drivers/spi/spi-mt65xx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/spi/spi-mt65xx.c
++++ b/drivers/spi/spi-mt65xx.c
+@@ -1082,7 +1082,7 @@ static int mtk_spi_probe(struct platform
+ 		master->flags = SPI_MASTER_MUST_TX;
+ 
+ 	if (mdata->dev_comp->ipm_design)
+-		master->mode_bits |= SPI_LOOP;
++		master->mode_bits |= SPI_LOOP | SPI_RX_DUAL | SPI_TX_DUAL | SPI_RX_QUAD | SPI_TX_QUAD;
+ 
+ 	if (mdata->dev_comp->ipm_design) {
+ 		mdata->dev = dev;

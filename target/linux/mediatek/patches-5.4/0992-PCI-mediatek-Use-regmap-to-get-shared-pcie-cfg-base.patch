@@ -166,7 +166,7 @@ Signed-off-by: chuanjia.liu <Chuanjia.Liu@mediatek.com>
  	struct clk *free_ck;
  
  	struct resource mem;
-@@ -651,7 +655,7 @@ static int mtk_pcie_setup_irq(struct mtk
+@@ -657,7 +661,7 @@ static int mtk_pcie_setup_irq(struct mtk
  		return err;
  	}
  
@@ -175,7 +175,7 @@ Signed-off-by: chuanjia.liu <Chuanjia.Liu@mediatek.com>
  	irq_set_chained_handler_and_data(port->irq,
  					 mtk_pcie_intr_handler, port);
  
-@@ -666,12 +670,11 @@ static int mtk_pcie_startup_port_v2(stru
+@@ -672,12 +676,11 @@ static int mtk_pcie_startup_port_v2(stru
  	u32 val;
  	int err;
  
@@ -193,7 +193,7 @@ Signed-off-by: chuanjia.liu <Chuanjia.Liu@mediatek.com>
  	}
  
  	/* Assert all reset signals */
-@@ -977,6 +980,7 @@ static int mtk_pcie_subsys_powerup(struc
+@@ -983,6 +986,7 @@ static int mtk_pcie_subsys_powerup(struc
  	struct device *dev = pcie->dev;
  	struct platform_device *pdev = to_platform_device(dev);
  	struct resource *regs;
@@ -201,7 +201,7 @@ Signed-off-by: chuanjia.liu <Chuanjia.Liu@mediatek.com>
  	int err;
  
  	/* get shared registers, which are optional */
-@@ -989,6 +993,13 @@ static int mtk_pcie_subsys_powerup(struc
+@@ -995,6 +999,13 @@ static int mtk_pcie_subsys_powerup(struc
  		}
  	}
  

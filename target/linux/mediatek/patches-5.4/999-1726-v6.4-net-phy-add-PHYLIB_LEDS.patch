@@ -1,5 +1,3 @@
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index e146955..291d5de 100644
 --- a/drivers/net/phy/Kconfig
 +++ b/drivers/net/phy/Kconfig
 @@ -255,6 +255,13 @@ config LED_TRIGGER_PHY
@@ -16,8 +14,6 @@ index e146955..291d5de 100644
  
  comment "Switch configuration API + drivers"
  
- diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 99f265a..0325030 100644
 --- a/drivers/net/phy/phy_device.c
 +++ b/drivers/net/phy/phy_device.c
 @@ -23,6 +23,7 @@
@@ -28,7 +24,7 @@ index 99f265a..0325030 100644
  #include <linux/ethtool.h>
  #include <linux/bitmap.h>
  #include <linux/phy.h>
-@@ -621,6 +623,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, u32 phy_id,
+@@ -622,6 +623,7 @@ struct phy_device *phy_device_create(str
  	device_initialize(&mdiodev->dev);
  
  	dev->state = PHY_DOWN;
@@ -36,7 +32,7 @@ index 99f265a..0325030 100644
  
  	mutex_init(&dev->lock);
  	INIT_DELAYED_WORK(&dev->state_queue, phy_state_machine);
-@@ -2515,6 +2518,208 @@ static bool phy_drv_supports_irq(struct phy_driver *phydrv)
+@@ -2516,6 +2518,208 @@ static bool phy_drv_supports_irq(struct
  	return phydrv->config_intr && phydrv->ack_interrupt;
  }
  
@@ -245,7 +241,7 @@ index 99f265a..0325030 100644
  /**
   * phy_probe - probe and init a PHY device
   * @dev: device to probe and init
-@@ -2613,6 +2818,12 @@ static int phy_probe(struct device *dev)
+@@ -2614,6 +2818,12 @@ static int phy_probe(struct device *dev)
  	/* Set the state to READY by default */
  	phydev->state = PHY_READY;
  
@@ -258,7 +254,7 @@ index 99f265a..0325030 100644
  out:
  	mutex_unlock(&phydev->lock);
  
-@@ -2625,6 +2836,9 @@ static int phy_remove(struct device *dev)
+@@ -2626,6 +2836,9 @@ static int phy_remove(struct device *dev
  
  	cancel_delayed_work_sync(&phydev->state_queue);
  
@@ -268,8 +264,6 @@ index 99f265a..0325030 100644
  	mutex_lock(&phydev->lock);
  	phydev->state = PHY_DOWN;
  	mutex_unlock(&phydev->lock);
-diff --git a/include/linux/leds.h b/include/linux/leds.h
-index efb309d..d5ef91a 100644
 --- a/include/linux/leds.h
 +++ b/include/linux/leds.h
 @@ -139,6 +139,49 @@ struct led_classdev {
@@ -322,7 +316,7 @@ index efb309d..d5ef91a 100644
  #endif
  
  #ifdef CONFIG_LEDS_BRIGHTNESS_HW_CHANGED
-@@ -455,6 +498,24 @@ static inline void *led_get_trigger_data(struct led_classdev *led_cdev)
+@@ -455,6 +498,24 @@ static inline void *led_get_trigger_data
  
  #endif /* CONFIG_LEDS_TRIGGERS */
  
@@ -347,8 +341,6 @@ index efb309d..d5ef91a 100644
  /* Trigger specific functions */
  #ifdef CONFIG_LEDS_TRIGGER_DISK
  extern void ledtrig_disk_activity(bool write);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index fb21ddb..a9c2842 100644
 --- a/include/linux/phy.h
 +++ b/include/linux/phy.h
 @@ -14,6 +14,7 @@
@@ -359,7 +351,7 @@ index fb21ddb..a9c2842 100644
  #include <linux/linkmode.h>
  #include <linux/mdio.h>
  #include <linux/mii.h>
-@@ -462,6 +463,7 @@ struct phy_device {
+@@ -458,6 +459,7 @@ struct phy_device {
  
  	struct phy_led_trigger *led_link_trigger;
  #endif
@@ -367,7 +359,7 @@ index fb21ddb..a9c2842 100644
  
  	/*
  	 * Interrupt number for this PHY
-@@ -502,6 +506,33 @@ struct phy_device {
+@@ -495,6 +497,33 @@ struct phy_device {
  #define to_phy_device(d) container_of(to_mdio_device(d), \
  				      struct phy_device, mdio)
  
@@ -401,7 +393,7 @@ index fb21ddb..a9c2842 100644
  /* struct phy_driver: Driver structure for a particular PHY type
   *
   * driver_data: static driver data
-@@ -705,6 +736,73 @@ struct phy_driver {
+@@ -698,6 +727,73 @@ struct phy_driver {
  			    struct ethtool_tunable *tuna,
  			    const void *data);
  	int (*set_loopback)(struct phy_device *dev, bool enable);

@@ -7,8 +7,6 @@ Subject: [PATCH] net: phy: add 2.5g and 5g related PMA and PCS speed constants
  include/uapi/linux/mdio.h | 4 ++++
  1 file changed, 4 insertions(+)
 
-diff --git a/include/uapi/linux/mdio.h b/include/uapi/linux/mdio.h
-index 3f302e2..353a146 100644
 --- a/include/uapi/linux/mdio.h
 +++ b/include/uapi/linux/mdio.h
 @@ -119,7 +119,11 @@
@@ -23,6 +21,3 @@ index 3f302e2..353a146 100644
  
  /* Device present registers. */
  #define MDIO_DEVS_PRESENT(devad)	(1 << (devad))
--- 
-2.45.2
-

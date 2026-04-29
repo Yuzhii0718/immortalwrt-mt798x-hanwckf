@@ -8,11 +8,9 @@ Subject: [PATCH]
  include/linux/phy.h | 18 +++++++++++++++---
  1 file changed, 15 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index d26dba255..4f2c105f5 100644
 --- a/include/linux/phy.h
 +++ b/include/linux/phy.h
-@@ -232,7 +232,8 @@ struct phy_package_shared {
+@@ -229,7 +229,8 @@ struct phy_package_shared {
  };
  
  /* used as bit number in atomic bitops */
@@ -22,7 +20,7 @@ index d26dba255..4f2c105f5 100644
  
  /*
   * The Bus class for PHYs.  Devices which provide access to
-@@ -1373,14 +1374,25 @@ static inline int __phy_package_write(struct phy_device *phydev,
+@@ -1370,14 +1371,25 @@ static inline int __phy_package_write(st
  	return __mdiobus_write(phydev->mdio.bus, shared->addr, regnum, val);
  }
  
@@ -50,6 +48,3 @@ index d26dba255..4f2c105f5 100644
  }
  
  extern struct bus_type mdio_bus_type;
--- 
-2.34.1
-

@@ -1,0 +1,43 @@
+From 913d94821d2f4795b43ee54a1412d8aaa5e31ca6 Mon Sep 17 00:00:00 2001
+From: "neal.yen" <neal.yen@mediatek.com>
+Date: Wed, 22 Apr 2026 13:42:49 +0800
+Subject: [PATCH] net: dsa: mt7530: add port_egress_floods callback to prevent null deref
+
+---
+ drivers/net/dsa/mt7530.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
+index 6422e06..567b530 100644
+--- a/drivers/net/dsa/mt7530.c
++++ b/drivers/net/dsa/mt7530.c
+@@ -1675,6 +1675,18 @@ static void mt753x_port_mirror_del(struct dsa_switch *ds, int port,
+ 	}
+ }
+ 
++static int mt753x_port_egress_floods(struct dsa_switch *ds, int port,
++					 bool unicast, bool multicast)
++{
++	/* add port_egress_floods callback to prevent potential NULL deref.
++	 *
++	 * When a system has multiple DSA switches where some implement
++	 * port_egress_floods and others do not, a potential kernel panic can
++	 * occur in dsa_port_mrouter().
++	 */
++	return 0;
++}
++
+ static enum dsa_tag_protocol
+ mtk_get_tag_protocol(struct dsa_switch *ds, int port,
+ 		     enum dsa_tag_protocol mp)
+@@ -3014,6 +3026,7 @@ static const struct dsa_switch_ops mt7530_switch_ops = {
+ 	.port_vlan_del		= mt7530_port_vlan_del,
+ 	.port_mirror_add	= mt753x_port_mirror_add,
+ 	.port_mirror_del	= mt753x_port_mirror_del,
++	.port_egress_floods	= mt753x_port_egress_floods,
+ 	.phylink_validate	= mt753x_phylink_validate,
+ 	.phylink_mac_link_state	= mt753x_phylink_mac_link_state,
+ 	.phylink_mac_config	= mt753x_phylink_mac_config,
+-- 
+2.45.2
+

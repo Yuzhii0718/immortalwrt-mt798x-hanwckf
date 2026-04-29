@@ -1,8 +1,6 @@
-diff --git a/drivers/net/phy/phy-core.c b/drivers/net/phy/phy-core.c
-index 8406412..96d9e1f 100644
 --- a/drivers/net/phy/phy-core.c
 +++ b/drivers/net/phy/phy-core.c
-@@ -62,6 +62,27 @@ const char *phy_duplex_to_str(unsigned int duplex)
+@@ -62,6 +62,27 @@ const char *phy_duplex_to_str(unsigned i
  }
  EXPORT_SYMBOL_GPL(phy_duplex_to_str);
  
@@ -30,15 +28,12 @@ index 8406412..96d9e1f 100644
  /* A mapping of all SUPPORTED settings to speed/duplex.  This table
   * must be grouped by speed and sorted in descending match priority
   * - iow, descending speed. */
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index e223f0d..6f2e4c7 100644
 --- a/drivers/net/phy/phy.c
 +++ b/drivers/net/phy/phy.c
-@@ -106,6 +106,33 @@ void phy_print_status(struct phy_device *phydev)
- }
+@@ -107,6 +107,33 @@ void phy_print_status(struct phy_device
  EXPORT_SYMBOL(phy_print_status);
  
-+/**
+ /**
 + * phy_get_rate_matching - determine if rate matching is supported
 + * @phydev: The phy device to return rate matching for
 + * @iface: The interface mode to use
@@ -65,10 +60,11 @@ index e223f0d..6f2e4c7 100644
 +}
 +EXPORT_SYMBOL_GPL(phy_get_rate_matching);
 +
- /**
++/**
   * phy_clear_interrupt - Ack the phy device's interrupt
   * @phydev: the phy_device struct
-@@ -380,6 +407,7 @@ void phy_ethtool_ksettings_get(struct phy_device *phydev,
+  *
+@@ -380,6 +407,7 @@ void phy_ethtool_ksettings_get(struct ph
  
  	cmd->base.speed = phydev->speed;
  	cmd->base.duplex = phydev->duplex;
@@ -76,11 +72,9 @@ index e223f0d..6f2e4c7 100644
  	if (phydev->interface == PHY_INTERFACE_MODE_MOCA)
  		cmd->base.port = PORT_BNC;
  	else
-diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
-index 6b63b98..949e3b8 100644
 --- a/drivers/net/phy/phylink.c
 +++ b/drivers/net/phy/phylink.c
-@@ -155,6 +155,64 @@ static const char *phylink_an_mode_str(unsigned int mode)
+@@ -155,6 +155,64 @@ static const char *phylink_an_mode_str(u
  	return mode < ARRAY_SIZE(modestr) ? modestr[mode] : "unknown";
  }
  
@@ -145,7 +139,7 @@ index 6b63b98..949e3b8 100644
  static int phylink_validate_mac_and_pcs(struct phylink *pl,
  					unsigned long *supported,
  					struct phylink_link_state *state)
-@@ -402,11 +460,12 @@ static void phylink_mac_config(struct phylink *pl,
+@@ -402,11 +460,12 @@ static void phylink_mac_config(struct ph
  			       const struct phylink_link_state *state)
  {
  	phylink_dbg(pl,
@@ -159,7 +153,7 @@ index 6b63b98..949e3b8 100644
  		    __ETHTOOL_LINK_MODE_MASK_NBITS, state->advertising,
  		    state->pause, state->link, state->an_enabled);
  
-@@ -499,6 +558,7 @@ static void phylink_mac_pcs_get_state(struct phylink *pl,
+@@ -543,6 +602,7 @@ static void phylink_mac_pcs_get_state(st
  	linkmode_zero(state->lp_advertising);
  	state->interface = pl->link_config.interface;
  	state->an_enabled = pl->link_config.an_enabled;
@@ -167,7 +161,7 @@ index 6b63b98..949e3b8 100644
  	if (state->an_enabled) {
  		state->speed = SPEED_UNKNOWN;
  		state->duplex = DUPLEX_UNKNOWN;
-@@ -614,9 +674,32 @@ static void phylink_link_up(struct phylink *pl,
+@@ -658,9 +718,32 @@ static void phylink_link_up(struct phyli
  {
  	struct net_device *ndev = pl->netdev;
  	int speed, duplex;
@@ -200,7 +194,7 @@ index 6b63b98..949e3b8 100644
  
  	pl->cur_interface = link_state.interface;
  
-@@ -626,8 +709,7 @@ static void phylink_link_up(struct phylink *pl,
+@@ -670,8 +753,7 @@ static void phylink_link_up(struct phyli
  
  	pl->mac_ops->mac_link_up(pl->config, pl->phydev, pl->cur_link_an_mode,
  				 pl->cur_interface, speed, duplex,
@@ -210,7 +204,7 @@ index 6b63b98..949e3b8 100644
  
  	if (ndev)
  		netif_carrier_on(ndev);
-@@ -719,6 +801,17 @@ static void phylink_resolve(struct work_struct *w)
+@@ -763,6 +845,17 @@ static void phylink_resolve(struct work_
  				}
  				link_state.interface = pl->phy_state.interface;
  
@@ -228,7 +222,7 @@ index 6b63b98..949e3b8 100644
  				/* If we have a PHY, we need to update with
  				 * the PHY flow control bits.
  				 */
-@@ -935,6 +1028,7 @@ static void phylink_phy_change(struct phy_device *phydev, bool up,
+@@ -979,6 +1072,7 @@ static void phylink_phy_change(struct ph
  	mutex_lock(&pl->state_mutex);
  	pl->phy_state.speed = phydev->speed;
  	pl->phy_state.duplex = phydev->duplex;
@@ -236,7 +230,7 @@ index 6b63b98..949e3b8 100644
  	pl->phy_state.pause = MLO_PAUSE_NONE;
  	if (phydev->pause)
  		pl->phy_state.pause |= MLO_PAUSE_SYM;
-@@ -946,10 +1040,11 @@ static void phylink_phy_change(struct phy_device *phydev, bool up,
+@@ -990,10 +1084,11 @@ static void phylink_phy_change(struct ph
  
  	phylink_run_resolve(pl);
  
@@ -250,7 +244,7 @@ index 6b63b98..949e3b8 100644
  }
  
  static int phylink_bringup_phy(struct phylink *pl, struct phy_device *phy,
-@@ -971,6 +1066,12 @@ static int phylink_bringup_phy(struct phylink *pl, struct phy_device *phy,
+@@ -1015,6 +1110,12 @@ static int phylink_bringup_phy(struct ph
  	memset(&config, 0, sizeof(config));
  	linkmode_copy(supported, phy->supported);
  	linkmode_copy(config.advertising, phy->advertising);
@@ -263,7 +257,7 @@ index 6b63b98..949e3b8 100644
  	config.interface = interface;
  
  	ret = phylink_validate(pl, supported, &config);
-@@ -988,6 +1089,7 @@ static int phylink_bringup_phy(struct phylink *pl, struct phy_device *phy,
+@@ -1032,6 +1133,7 @@ static int phylink_bringup_phy(struct ph
  	mutex_lock(&pl->state_mutex);
  	pl->phydev = phy;
  	pl->phy_state.interface = interface;
@@ -271,7 +265,7 @@ index 6b63b98..949e3b8 100644
  	linkmode_copy(pl->supported, supported);
  	linkmode_copy(pl->link_config.advertising, config.advertising);
  
-@@ -1348,8 +1450,10 @@ static void phylink_get_ksettings(const struct phylink_link_state *state,
+@@ -1392,8 +1494,10 @@ static void phylink_get_ksettings(const
  {
  	phylink_merge_link_mode(kset->link_modes.advertising, state->advertising);
  	linkmode_copy(kset->link_modes.lp_advertising, state->lp_advertising);
@@ -284,8 +278,6 @@ index 6b63b98..949e3b8 100644
  	kset->base.autoneg = state->an_enabled ? AUTONEG_ENABLE :
  				AUTONEG_DISABLE;
  }
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 4f2c105..df9fb90 100644
 --- a/include/linux/phy.h
 +++ b/include/linux/phy.h
 @@ -423,6 +423,8 @@ struct phy_device {
@@ -324,7 +316,7 @@ index 4f2c105..df9fb90 100644
  
  /* A structure for mapping a particular speed and duplex
   * combination to a particular SUPPORTED and ADVERTISED value
-@@ -1242,6 +1257,8 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd);
+@@ -1242,6 +1257,8 @@ int phy_mii_ioctl(struct phy_device *phy
  void phy_request_interrupt(struct phy_device *phydev);
  void phy_free_interrupt(struct phy_device *phydev);
  void phy_print_status(struct phy_device *phydev);
@@ -333,11 +325,9 @@ index 4f2c105..df9fb90 100644
  int phy_set_max_speed(struct phy_device *phydev, u32 max_speed);
  void phy_remove_link_mode(struct phy_device *phydev, u32 link_mode);
  void phy_advertise_supported(struct phy_device *phydev);
-diff --git a/include/linux/phylink.h b/include/linux/phylink.h
-index 48ff9fe..e1c022f 100644
 --- a/include/linux/phylink.h
 +++ b/include/linux/phylink.h
-@@ -38,6 +38,10 @@ static inline bool phylink_autoneg_inband(unsigned int mode)
+@@ -38,6 +38,10 @@ static inline bool phylink_autoneg_inban
   * @speed: link speed, one of the SPEED_* constants.
   * @duplex: link duplex mode, one of DUPLEX_* constants.
   * @pause: link pause state, described by MLO_PAUSE_* constants.
@@ -356,11 +346,9 @@ index 48ff9fe..e1c022f 100644
  	unsigned int link:1;
  	unsigned int an_enabled:1;
  	unsigned int an_complete:1;
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 8d465e5..ce41d2f 100644
 --- a/include/uapi/linux/ethtool.h
 +++ b/include/uapi/linux/ethtool.h
-@@ -1643,6 +1643,20 @@ static inline int ethtool_validate_duplex(__u8 duplex)
+@@ -1643,6 +1643,20 @@ static inline int ethtool_validate_duple
  	return 0;
  }
  
@@ -399,11 +387,9 @@ index 8d465e5..ce41d2f 100644
  	__u32	reserved[7];
  	__u32	link_mode_masks[0];
  	/* layout of link_mode_masks fields:
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 9ae38c3..41a8b1d 100644
 --- a/net/core/ethtool.c
 +++ b/net/core/ethtool.c
-@@ -656,6 +656,7 @@ static int ethtool_get_link_ksettings(struct net_device *dev,
+@@ -659,6 +659,7 @@ static int ethtool_get_link_ksettings(st
  	link_ksettings.base.cmd = ETHTOOL_GLINKSETTINGS;
  	link_ksettings.base.link_mode_masks_nwords
  		= __ETHTOOL_LINK_MODE_MASK_NU32;

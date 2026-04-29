@@ -8,8 +8,6 @@ Subject: [PATCH] leds: trigger: netdev: add additional specific link speed and
  drivers/leds/trigger/ledtrig-netdev.c | 421 +++++++++++++++++++-------
  1 file changed, 308 insertions(+), 113 deletions(-)
 
-diff --git a/drivers/leds/trigger/ledtrig-netdev.c b/drivers/leds/trigger/ledtrig-netdev.c
-index f4d670e..7b56ae3 100644
 --- a/drivers/leds/trigger/ledtrig-netdev.c
 +++ b/drivers/leds/trigger/ledtrig-netdev.c
 @@ -20,10 +20,13 @@
@@ -57,7 +55,7 @@ index f4d670e..7b56ae3 100644
  };
  
  static void set_baseline_state(struct led_netdev_data *trigger_data)
-@@ -67,16 +65,60 @@ static void set_baseline_state(struct led_netdev_data *trigger_data)
+@@ -67,16 +65,60 @@ static void set_baseline_state(struct le
  	int current_brightness;
  	struct led_classdev *led_cdev = trigger_data->led_cdev;
  
@@ -121,7 +119,7 @@ index f4d670e..7b56ae3 100644
  			led_set_brightness(led_cdev,
  					   led_cdev->blink_brightness);
  		else
-@@ -85,44 +127,129 @@ static void set_baseline_state(struct led_netdev_data *trigger_data)
+@@ -85,44 +127,129 @@ static void set_baseline_state(struct le
  		/* If we are looking for RX/TX start periodically
  		 * checking stats
  		 */
@@ -262,7 +260,7 @@ index f4d670e..7b56ae3 100644
  	trigger_data->device_name[size] = 0;
  	if (size > 0 && trigger_data->device_name[size - 1] == '\n')
  		trigger_data->device_name[size - 1] = 0;
-@@ -131,36 +258,56 @@ static ssize_t device_name_store(struct device *dev,
+@@ -131,36 +258,56 @@ static ssize_t device_name_store(struct
  		trigger_data->net_dev =
  		    dev_get_by_name(&init_net, trigger_data->device_name);
  
@@ -285,7 +283,7 @@ index f4d670e..7b56ae3 100644
 +
 +	return 0;
 +}
-+
+ 
 +static ssize_t device_name_store(struct device *dev,
 +				 struct device_attribute *attr, const char *buf,
 +				 size_t size)
@@ -294,7 +292,7 @@ index f4d670e..7b56ae3 100644
 +	int ret;
 +
 +	ret = set_device_name(trigger_data, buf, size);
- 
++
 +	if (ret < 0)
 +		return ret;
  	return size;
@@ -333,7 +331,7 @@ index f4d670e..7b56ae3 100644
  		break;
  	default:
  		return -EINVAL;
-@@ -170,10 +317,10 @@ static ssize_t netdev_led_attr_show(struct device *dev, char *buf,
+@@ -170,10 +317,10 @@ static ssize_t netdev_led_attr_show(stru
  }
  
  static ssize_t netdev_led_attr_store(struct device *dev, const char *buf,
@@ -346,7 +344,7 @@ index f4d670e..7b56ae3 100644
  	int ret;
  	int bit;
  
-@@ -182,72 +329,71 @@ static ssize_t netdev_led_attr_store(struct device *dev, const char *buf,
+@@ -182,72 +329,71 @@ static ssize_t netdev_led_attr_store(str
  		return ret;
  
  	switch (attr) {
@@ -399,7 +397,8 @@ index f4d670e..7b56ae3 100644
 -{
 -	return netdev_led_attr_store(dev, buf, size, NETDEV_ATTR_LINK);
 -}
--
++		clear_bit(bit, &mode);
+ 
 -static DEVICE_ATTR_RW(link);
 -
 -static ssize_t tx_show(struct device *dev,
@@ -407,8 +406,6 @@ index f4d670e..7b56ae3 100644
 -{
 -	return netdev_led_attr_show(dev, buf, NETDEV_ATTR_TX);
 -}
-+		clear_bit(bit, &mode);
-+
 +	if (test_bit(TRIGGER_NETDEV_LINK, &mode) &&
 +	    (test_bit(TRIGGER_NETDEV_LINK_10, &mode) ||
 +	     test_bit(TRIGGER_NETDEV_LINK_100, &mode) ||
@@ -471,7 +468,7 @@ index f4d670e..7b56ae3 100644
  
  static ssize_t interval_show(struct device *dev,
  			     struct device_attribute *attr, char *buf)
-@@ -266,6 +412,9 @@ static ssize_t interval_store(struct device *dev,
+@@ -266,6 +412,9 @@ static ssize_t interval_store(struct dev
  	unsigned long value;
  	int ret;
  
@@ -481,7 +478,7 @@ index f4d670e..7b56ae3 100644
  	ret = kstrtoul(buf, 0, &value);
  	if (ret)
  		return ret;
-@@ -283,12 +432,31 @@ static ssize_t interval_store(struct device *dev,
+@@ -283,12 +432,31 @@ static ssize_t interval_store(struct dev
  
  static DEVICE_ATTR_RW(interval);
  
@@ -513,7 +510,7 @@ index f4d670e..7b56ae3 100644
  	NULL
  };
  ATTRIBUTE_GROUPS(netdev_trig);
-@@ -313,19 +481,19 @@ static int netdev_trig_notify(struct notifier_block *nb,
+@@ -313,19 +481,19 @@ static int netdev_trig_notify(struct not
  
  	cancel_delayed_work_sync(&trigger_data->work);
  
@@ -540,7 +537,7 @@ index f4d670e..7b56ae3 100644
  		break;
  	case NETDEV_UNREGISTER:
  		dev_put(trigger_data->net_dev);
-@@ -333,14 +501,13 @@ static int netdev_trig_notify(struct notifier_block *nb,
+@@ -333,14 +501,13 @@ static int netdev_trig_notify(struct not
  		break;
  	case NETDEV_UP:
  	case NETDEV_CHANGE:
@@ -557,7 +554,7 @@ index f4d670e..7b56ae3 100644
  
  	return NOTIFY_DONE;
  }
-@@ -363,21 +530,29 @@ static void netdev_trig_work(struct work_struct *work)
+@@ -363,21 +530,29 @@ static void netdev_trig_work(struct work
  	}
  
  	/* If we are not looking for RX/TX then return  */
@@ -592,7 +589,7 @@ index f4d670e..7b56ae3 100644
  		interval = jiffies_to_msecs(
  				atomic_read(&trigger_data->interval));
  		/* base state is ON (link present) */
-@@ -395,13 +570,15 @@ static void netdev_trig_work(struct work_struct *work)
+@@ -395,13 +570,15 @@ static void netdev_trig_work(struct work
  static int netdev_trig_activate(struct led_classdev *led_cdev)
  {
  	struct led_netdev_data *trigger_data;
@@ -609,7 +606,7 @@ index f4d670e..7b56ae3 100644
  
  	trigger_data->notifier.notifier_call = netdev_trig_notify;
  	trigger_data->notifier.priority = 10;
-@@ -413,9 +590,26 @@ static int netdev_trig_activate(struct led_classdev *led_cdev)
+@@ -413,9 +590,26 @@ static int netdev_trig_activate(struct l
  	trigger_data->device_name[0] = 0;
  
  	trigger_data->mode = 0;
@@ -637,7 +634,7 @@ index f4d670e..7b56ae3 100644
  	led_set_trigger_data(led_cdev, trigger_data);
  
  	rc = register_netdevice_notifier(&trigger_data->notifier);
-@@ -433,8 +627,9 @@ static void netdev_trig_deactivate(struct led_classdev *led_cdev)
+@@ -433,8 +627,9 @@ static void netdev_trig_deactivate(struc
  
  	cancel_delayed_work_sync(&trigger_data->work);
  
@@ -649,6 +646,3 @@ index f4d670e..7b56ae3 100644
  
  	kfree(trigger_data);
  }
--- 
-2.45.2
-

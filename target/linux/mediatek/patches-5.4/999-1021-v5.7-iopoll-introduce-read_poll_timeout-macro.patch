@@ -10,8 +10,6 @@ Subject: [PATCH]
  include/linux/phy.h          | 27 ++++++++++++++++++++++++
  3 files changed, 65 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 76a68bb02..0349801df 100644
 --- a/drivers/net/phy/phy_device.c
 +++ b/drivers/net/phy/phy_device.c
 @@ -1056,18 +1056,12 @@ EXPORT_SYMBOL(phy_disconnect);
@@ -38,8 +36,6 @@ index 76a68bb02..0349801df 100644
  	/* Some chips (smsc911x) may still need up to another 1ms after the
  	 * BMCR_RESET bit is cleared before they are usable.
  	 */
-diff --git a/include/linux/iopoll.h b/include/linux/iopoll.h
-index 35e15dfd4..cb20c733b 100644
 --- a/include/linux/iopoll.h
 +++ b/include/linux/iopoll.h
 @@ -14,36 +14,41 @@
@@ -91,11 +87,10 @@ index 35e15dfd4..cb20c733b 100644
  			break; \
  		} \
  		if (__sleep_us) \
-@@ -52,6 +57,27 @@
- 	(cond) ? 0 : -ETIMEDOUT; \
+@@ -53,6 +58,27 @@
  })
  
-+/**
+ /**
 + * readx_poll_timeout - Periodically poll an address until a condition is met or a timeout occurs
 + * @op: accessor function (takes @addr as its only argument)
 + * @addr: Address to poll
@@ -116,11 +111,10 @@ index 35e15dfd4..cb20c733b 100644
 +#define readx_poll_timeout(op, addr, val, cond, sleep_us, timeout_us)	\
 +	read_poll_timeout(op, val, cond, sleep_us, timeout_us, false, addr)
 +
- /**
++/**
   * readx_poll_timeout_atomic - Periodically poll an address until a condition is met or a timeout occurs
   * @op: accessor function (takes @addr as its only argument)
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index a1070d60e..107dcbea4 100644
+  * @addr: Address to poll
 --- a/include/linux/phy.h
 +++ b/include/linux/phy.h
 @@ -21,6 +21,7 @@
@@ -131,7 +125,7 @@ index a1070d60e..107dcbea4 100644
  
  #include <linux/atomic.h>
  
-@@ -714,6 +715,19 @@ static inline int phy_read(struct phy_device *phydev, u32 regnum)
+@@ -711,6 +712,19 @@ static inline int phy_read(struct phy_de
  	return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr, regnum);
  }
  
@@ -151,7 +145,7 @@ index a1070d60e..107dcbea4 100644
  /**
   * __phy_read - convenience function for reading a given PHY register
   * @phydev: the phy_device struct
-@@ -766,6 +780,19 @@ static inline int __phy_write(struct phy_device *phydev, u32 regnum, u16 val)
+@@ -763,6 +777,19 @@ static inline int __phy_write(struct phy
   */
  int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum);
  
@@ -171,6 +165,3 @@ index a1070d60e..107dcbea4 100644
  /**
   * __phy_read_mmd - Convenience function for reading a register
   * from an MMD on a given PHY.
--- 
-2.34.1
-

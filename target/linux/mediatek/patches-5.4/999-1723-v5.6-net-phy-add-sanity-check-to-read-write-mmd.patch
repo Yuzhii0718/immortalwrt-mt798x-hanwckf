@@ -7,11 +7,9 @@ Subject: [PATCH] net: phy: add sanity check to read/write mmd
  drivers/net/phy/phy-core.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/phy-core.c b/drivers/net/phy/phy-core.c
-index c34fc07..f160536 100644
 --- a/drivers/net/phy/phy-core.c
 +++ b/drivers/net/phy/phy-core.c
-@@ -400,7 +400,7 @@ int __phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
+@@ -400,7 +400,7 @@ int __phy_read_mmd(struct phy_device *ph
  	if (regnum > (u16)~0 || devad > 32)
  		return -EINVAL;
  
@@ -20,7 +18,7 @@ index c34fc07..f160536 100644
  		val = phydev->drv->read_mmd(phydev, devad, regnum);
  	} else if (phydev->is_c45) {
  		u32 addr = MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff);
-@@ -457,7 +457,7 @@ int __phy_write_mmd(struct phy_device *phydev, int devad, u32 regnum, u16 val)
+@@ -457,7 +457,7 @@ int __phy_write_mmd(struct phy_device *p
  	if (regnum > (u16)~0 || devad > 32)
  		return -EINVAL;
  
@@ -29,6 +27,3 @@ index c34fc07..f160536 100644
  		ret = phydev->drv->write_mmd(phydev, devad, regnum, val);
  	} else if (phydev->is_c45) {
  		u32 addr = MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff);
--- 
-2.45.2
-

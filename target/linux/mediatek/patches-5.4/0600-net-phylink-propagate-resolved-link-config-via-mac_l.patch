@@ -95,7 +95,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	}
  
  	netif_tx_start_all_queues(port->dev);
-@@ -5125,8 +5129,11 @@ static void mvpp2_mac_config(struct phyl
+@@ -5130,8 +5134,11 @@ static void mvpp2_mac_config(struct phyl
  	mvpp2_port_enable(port);
  }
  
@@ -111,8 +111,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	u32 val;
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -449,9 +449,10 @@ static void mtk_mac_link_down(struct phy
- 	mtk_w32(mac->hw, mcr, MTK_MAC_MCR(mac->id));
+@@ -1209,9 +1209,10 @@ out:
+ 	mtk_w32(eth, val, MTK_QTX_SCH(idx));
  }
  
 -static void mtk_mac_link_up(struct phylink_config *config, unsigned int mode,
@@ -141,7 +141,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  
 --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
 +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -1501,9 +1501,10 @@ static void axienet_mac_link_down(struct
+@@ -1623,9 +1623,10 @@ static void axienet_mac_link_down(struct
  }
  
  static void axienet_mac_link_up(struct phylink_config *config,

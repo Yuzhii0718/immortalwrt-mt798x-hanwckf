@@ -1,12 +1,9 @@
-diff --git a/drivers/net/phy/phy-c45.c b/drivers/net/phy/phy-c45.c
-index 797946c..4bb258b 100644
 --- a/drivers/net/phy/phy-c45.c
 +++ b/drivers/net/phy/phy-c45.c
-@@ -8,6 +8,25 @@
- #include <linux/mii.h>
+@@ -9,6 +9,25 @@
  #include <linux/phy.h>
  
-+/**
+ /**
 + * genphy_c45_baset1_able - checks if the PMA has BASE-T1 extended abilities
 + * @phydev: target phy_device struct
 + */
@@ -25,10 +22,11 @@ index 797946c..4bb258b 100644
 +	return !!(phydev->pma_extable & MDIO_PMA_EXTABLE_BT1);
 +}
 +
- /**
++/**
   * genphy_c45_pma_can_sleep - checks if the PMA have sleep support
   * @phydev: target phy_device struct
-@@ -52,7 +71,7 @@ int genphy_c45_pma_suspend(struct phy_device *phydev)
+  */
+@@ -52,7 +71,7 @@ int genphy_c45_pma_suspend(struct phy_de
  EXPORT_SYMBOL_GPL(genphy_c45_pma_suspend);
  
  /**
@@ -37,21 +35,21 @@ index 797946c..4bb258b 100644
   * @phydev: target phy_device struct
   */
  int genphy_c45_pma_setup_forced(struct phy_device *phydev)
-@@ -178,8 +197,12 @@ EXPORT_SYMBOL_GPL(genphy_c45_an_config_aneg);
+@@ -178,8 +197,12 @@ EXPORT_SYMBOL_GPL(genphy_c45_an_config_a
   */
  int genphy_c45_an_disable_aneg(struct phy_device *phydev)
  {
 +	u16 reg = MDIO_CTRL1;
- 
--	return phy_clear_bits_mmd(phydev, MDIO_MMD_AN, MDIO_CTRL1,
++
 +	if (genphy_c45_baset1_able(phydev))
 +		reg = MDIO_AN_T1_CTRL;
-+
+ 
+-	return phy_clear_bits_mmd(phydev, MDIO_MMD_AN, MDIO_CTRL1,
 +	return phy_clear_bits_mmd(phydev, MDIO_MMD_AN, reg,
  				  MDIO_AN_CTRL1_ENABLE | MDIO_AN_CTRL1_RESTART);
  }
  EXPORT_SYMBOL_GPL(genphy_c45_an_disable_aneg);
-@@ -194,7 +217,12 @@ EXPORT_SYMBOL_GPL(genphy_c45_an_disable_aneg);
+@@ -194,7 +217,12 @@ EXPORT_SYMBOL_GPL(genphy_c45_an_disable_
   */
  int genphy_c45_restart_aneg(struct phy_device *phydev)
  {
@@ -65,7 +63,7 @@ index 797946c..4bb258b 100644
  				MDIO_AN_CTRL1_ENABLE | MDIO_AN_CTRL1_RESTART);
  }
  EXPORT_SYMBOL_GPL(genphy_c45_restart_aneg);
-@@ -210,11 +238,15 @@ EXPORT_SYMBOL_GPL(genphy_c45_restart_aneg);
+@@ -210,11 +238,15 @@ EXPORT_SYMBOL_GPL(genphy_c45_restart_ane
   */
  int genphy_c45_check_and_restart_aneg(struct phy_device *phydev, bool restart)
  {
@@ -83,7 +81,7 @@ index 797946c..4bb258b 100644
  		if (ret < 0)
  			return ret;
  
-@@ -223,9 +255,9 @@ int genphy_c45_check_and_restart_aneg(struct phy_device *phydev, bool restart)
+@@ -223,9 +255,9 @@ int genphy_c45_check_and_restart_aneg(st
  	}
  
  	if (restart)
@@ -95,7 +93,7 @@ index 797946c..4bb258b 100644
  }
  EXPORT_SYMBOL_GPL(genphy_c45_check_and_restart_aneg);
  
-@@ -242,7 +274,13 @@ EXPORT_SYMBOL_GPL(genphy_c45_check_and_restart_aneg);
+@@ -242,7 +274,13 @@ EXPORT_SYMBOL_GPL(genphy_c45_check_and_r
   */
  int genphy_c45_aneg_done(struct phy_device *phydev)
  {
@@ -110,7 +108,7 @@ index 797946c..4bb258b 100644
  
  	return val < 0 ? val : val & MDIO_AN_STAT1_COMPLETE ? 1 : 0;
  }
-@@ -307,6 +345,49 @@ int genphy_c45_read_link(struct phy_device *phydev)
+@@ -307,6 +345,49 @@ int genphy_c45_read_link(struct phy_devi
  }
  EXPORT_SYMBOL_GPL(genphy_c45_read_link);
  
@@ -160,7 +158,7 @@ index 797946c..4bb258b 100644
  /**
   * genphy_c45_read_lpa - read the link partner advertisement and pause
   * @phydev: target phy_device struct
-@@ -321,6 +402,9 @@ int genphy_c45_read_lpa(struct phy_device *phydev)
+@@ -321,6 +402,9 @@ int genphy_c45_read_lpa(struct phy_devic
  {
  	int val;
  
@@ -170,11 +168,10 @@ index 797946c..4bb258b 100644
  	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
  	if (val < 0)
  		return val;
-@@ -436,6 +520,44 @@ int genphy_c45_read_mdix(struct phy_device *phydev)
- }
+@@ -437,6 +521,44 @@ int genphy_c45_read_mdix(struct phy_devi
  EXPORT_SYMBOL_GPL(genphy_c45_read_mdix);
  
-+/**
+ /**
 + * genphy_c45_pma_baset1_read_abilities - read supported baset1 link modes from PMA
 + * @phydev: target phy_device struct
 + *
@@ -212,14 +209,13 @@ index 797946c..4bb258b 100644
 +}
 +EXPORT_SYMBOL_GPL(genphy_c45_pma_baset1_read_abilities);
 +
- /**
++/**
   * genphy_c45_pma_read_abilities - read supported link modes from PMA
   * @phydev: target phy_device struct
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 99f265a..0325030 100644
+  *
 --- a/drivers/net/phy/phy_device.c
 +++ b/drivers/net/phy/phy_device.c
-@@ -611,6 +612,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, u32 phy_id,
+@@ -611,6 +611,7 @@ struct phy_device *phy_device_create(str
  
  	dev->autoneg = AUTONEG_ENABLE;
  
@@ -227,11 +223,9 @@ index 99f265a..0325030 100644
  	dev->is_c45 = is_c45;
  	dev->phy_id = phy_id;
  	if (c45_ids)
-diff --git a/include/linux/mdio.h b/include/linux/mdio.h
-index 006d1c1..6b14894 100644
 --- a/include/linux/mdio.h
 +++ b/include/linux/mdio.h
-@@ -326,6 +326,42 @@ static inline void mii_10gbt_stat_mod_linkmode_lpa_t(unsigned long *advertising,
+@@ -326,6 +326,42 @@ static inline void mii_10gbt_stat_mod_li
  			 advertising, lpa & MDIO_AN_10GBT_STAT_LP10G);
  }
  
@@ -274,11 +268,9 @@ index 006d1c1..6b14894 100644
  int __mdiobus_read(struct mii_bus *bus, int addr, u32 regnum);
  int __mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val);
  
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index fb21ddb..a9c2842 100644
 --- a/include/linux/phy.h
 +++ b/include/linux/phy.h
-@@ -491,6 +493,8 @@ struct phy_device {
+@@ -487,6 +487,8 @@ struct phy_device {
  	u8 mdix;
  	u8 mdix_ctrl;
  
@@ -286,9 +278,7 @@ index fb21ddb..a9c2842 100644
 +
  	void (*phy_link_change)(struct phy_device *, bool up, bool do_carrier);
  	void (*adjust_link)(struct net_device *dev);
- 
-diff --git a/include/uapi/linux/mdio.h b/include/uapi/linux/mdio.h
-index 353a146..a47cadc 100644
+ };
 --- a/include/uapi/linux/mdio.h
 +++ b/include/uapi/linux/mdio.h
 @@ -65,6 +65,17 @@

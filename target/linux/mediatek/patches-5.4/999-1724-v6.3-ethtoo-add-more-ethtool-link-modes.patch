@@ -1,5 +1,3 @@
-diff --git a/drivers/net/phy/phy-core.c b/drivers/net/phy/phy-core.c
-index 7f7cdbd..0fd9885 100644
 --- a/drivers/net/phy/phy-core.c
 +++ b/drivers/net/phy/phy-core.c
 @@ -8,7 +8,7 @@
@@ -11,8 +9,6 @@ index 7f7cdbd..0fd9885 100644
  		"Enum ethtool_link_mode_bit_indices and phylib are out of sync. "
  		"If a speed or mode has been added please update phy_speed_to_str "
  		"and the PHY settings array.\n");
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index ce41d2f..502baa2 100644
 --- a/include/uapi/linux/ethtool.h
 +++ b/include/uapi/linux/ethtool.h
 @@ -1507,6 +1507,39 @@ enum ethtool_link_mode_bit_indices {
