@@ -478,6 +478,24 @@ define Device/ruijie-rg-x60-pro
 endef
 TARGET_DEVICES += ruijie-rg-x60-pro
 
+define Device/ruijie-rg-x60-new-expand
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := Ruijie RG-X60 New (Expand)
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-new-expand
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  DEVICE_PACKAGES := kmod-phy-airoha-en8811h
+  SUPPORTED_DEVICES := ruijie,rg-x60-new-expand
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 115712k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie-rg-x60-new-expand
+
 define Device/ruijie-rg-x60-new-stock
   DEVICE_VENDOR := Ruijie
   DEVICE_MODEL := Ruijie RG-X60 New (Stock)
