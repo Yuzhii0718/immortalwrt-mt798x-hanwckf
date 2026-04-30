@@ -217,24 +217,24 @@ static inline void reg_writew(struct mtk_i2p5ge_phy_priv *priv, u32 offset,
 }
 
 static inline void reg_modify(struct mtk_i2p5ge_phy_priv *priv, u32 offset,
-			      u32 mask, u32 val)
+			      u32 mask, u32 set)
 {
 	u32 reg = reg_readl(priv, offset);
 
-	reg = (reg & ~mask) | (val & mask);
+	reg = (reg & ~mask) | set;
 	reg_writel(priv, offset, reg);
 }
 
 static inline void reg_set_bits(struct mtk_i2p5ge_phy_priv *priv, u32 offset,
-				u32 bits)
+				u32 val)
 {
-	reg_modify(priv, offset, bits, bits);
+	reg_modify(priv, offset, 0, val);
 }
 
 static inline void reg_clear_bits(struct mtk_i2p5ge_phy_priv *priv, u32 offset,
-				  u32 bits)
+				  u32 val)
 {
-	reg_modify(priv, offset, bits, 0);
+	reg_modify(priv, offset, val, 0);
 }
 
 static ssize_t mtk_2p5ge_attr_show(struct device *dev,
@@ -410,10 +410,12 @@ static int mt7987_2p5ge_phy_load_fw(struct phy_device *phydev)
 		goto release_fw;
 	}
 
+	mutex_lock(&phydev->mdio.bus->mdio_lock);
+
 	/* Force 2.5Gphy back to AN state */
-	phy_set_bits(phydev, MII_BMCR, BMCR_RESET);
+	__phy_set_bits(phydev, MII_BMCR, BMCR_RESET);
 	usleep_range(5000, 6000);
-	phy_set_bits(phydev, MII_BMCR, BMCR_PDOWN);
+	__phy_set_bits(phydev, MII_BMCR, BMCR_PDOWN);
 
 	reg = readw(apb_base + SW_RESET);
 	writew(reg & ~MD32_RESTART_EN_CLEAR, apb_base + SW_RESET);
@@ -454,17 +456,17 @@ static int mt7987_2p5ge_phy_load_fw(struct phy_device *phydev)
 		dev_err(dev, "Fail to enable 2.5Gbps module clock: %d\n", ret);
 
 	/* Disable AN */
-	phy_clear_bits(phydev, MII_BMCR, BMCR_ANENABLE);
+	__phy_clear_bits(phydev, MII_BMCR, BMCR_ANENABLE);
 
 	/* Force to run at 2.5G speed */
-	phy_modify_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_AN_FORCE_SPEED_REG,
-		       MTK_PHY_MASTER_FORCE_SPEED_SEL_MASK,
-		       MTK_PHY_MASTER_FORCE_SPEED_SEL_EN |
-		       FIELD_PREP(MTK_PHY_MASTER_FORCE_SPEED_SEL_MASK, 0x1b));
+	__phy_modify_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_AN_FORCE_SPEED_REG,
+			 MTK_PHY_MASTER_FORCE_SPEED_SEL_MASK,
+			 MTK_PHY_MASTER_FORCE_SPEED_SEL_EN |
+			 FIELD_PREP(MTK_PHY_MASTER_FORCE_SPEED_SEL_MASK, 0x1b));
 
-	phy_set_bits_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_LINK_STATUS_RELATED,
-			 MTK_PHY_BYPASS_LINK_STATUS_OK |
-			 MTK_PHY_FORCE_LINK_STATUS_HCD);
+	__phy_set_bits_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_LINK_STATUS_RELATED,
+			   MTK_PHY_BYPASS_LINK_STATUS_OK |
+			   MTK_PHY_FORCE_LINK_STATUS_HCD);
 
 	/* Set xbz, pma and rx as "do not reset" in order to input DSP code. */
 	reg_set_bits(priv, MTK_2P5GPHY_PMD_REG + DO_NOT_RESET,
@@ -532,9 +534,11 @@ static int mt7987_2p5ge_phy_load_fw(struct phy_device *phydev)
 
 	reg = reg_readw(priv, MTK_2P5GPHY_MCU_CSR + MD32_EN_CFG);
 	reg_writew(priv, MTK_2P5GPHY_MCU_CSR + MD32_EN_CFG, reg | MD32_EN);
-	phy_set_bits(phydev, MII_BMCR, BMCR_RESET);
+	__phy_set_bits(phydev, MII_BMCR, BMCR_RESET);
 	/* We need a delay here to stabilize initialization of MCU */
 	usleep_range(7000, 8000);
+
+	mutex_unlock(&phydev->mdio.bus->mdio_lock);
 
 release_fw:
 	release_firmware(fw);
@@ -564,16 +568,18 @@ static int mt7988_2p5ge_phy_load_fw(struct phy_device *phydev)
 		goto release_fw;
 	}
 
+	mutex_lock(&phydev->mdio.bus->mdio_lock);
+
 	reg = reg_readw(priv, MTK_2P5GPHY_MCU_CSR + MD32_EN_CFG);
 	if (reg & MD32_EN) {
-		phy_set_bits(phydev, MII_BMCR, BMCR_RESET);
+		__phy_set_bits(phydev, MII_BMCR, BMCR_RESET);
 		usleep_range(10000, 11000);
 	}
-	phy_set_bits(phydev, MII_BMCR, BMCR_PDOWN);
+	__phy_set_bits(phydev, MII_BMCR, BMCR_PDOWN);
 
 	/* Write magic number to safely stall MCU */
-	phy_write_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_HOST_CMD1, 0x1100);
-	phy_write_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_HOST_CMD2, 0x00df);
+	__phy_write_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_HOST_CMD1, 0x1100);
+	__phy_write_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_HOST_CMD2, 0x00df);
 
 	for (i = 0; i < MT7988_2P5GE_PMB_FW_SIZE - 1; i += 4)
 		reg_writel(priv, MTK_2P5GPHY_PMB_FW + i,
@@ -581,9 +587,11 @@ static int mt7988_2p5ge_phy_load_fw(struct phy_device *phydev)
 
 	reg_writew(priv, MTK_2P5GPHY_MCU_CSR + MD32_EN_CFG, reg & ~MD32_EN);
 	reg_writew(priv, MTK_2P5GPHY_MCU_CSR + MD32_EN_CFG, reg | MD32_EN);
-	phy_set_bits(phydev, MII_BMCR, BMCR_RESET);
+	__phy_set_bits(phydev, MII_BMCR, BMCR_RESET);
 	/* We need a delay here to stabilize initialization of MCU */
 	usleep_range(7000, 8000);
+
+	mutex_unlock(&phydev->mdio.bus->mdio_lock);
 
 	mtk_2p5ge_fw_info(dev, priv, fw, MT7988_2P5GE_PMB_FW_SIZE);
 
@@ -695,47 +703,16 @@ static int mt798x_2p5ge_phy_get_features(struct phy_device *phydev)
 	return 0;
 }
 
-static int mt798x_2p5ge_phy_handle_interrupt(struct phy_device *phydev)
-{
-	int ret;
-
-	ret = phy_read(phydev, 0x1a);
-	if (ret < 0)
-		return ret;
-
-	phy_queue_state_machine(phydev, 0);
-
-	return 0;
-}
-
-static int mt798x_2p5ge_phy_ack_interrupt(struct phy_device *phydev)
-{
-	int ret;
-
-	/* Clear pending interrupts */
-	ret = phy_read(phydev, 0x1a);
-	if (ret < 0)
-		return ret;
-
-	return 0;
-}
-
 static int mt798x_2p5ge_phy_config_intr(struct phy_device *phydev)
 {
 	struct mtk_i2p5ge_phy_priv *priv = phydev->priv;
-	int ret = 0;
 
-	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
 		reg_clear_bits(priv, MTK_2P5GPHY_CHIP_SCU + IRQ_MASK, PHY_IRQ_MASK);
-		phy_write(phydev, MTK_PHY_IRQ_MASK, MDINT_MASK | LINK_STATUS_MASK);
-		ret = mt798x_2p5ge_phy_ack_interrupt(phydev);
-	} else {
-		/* Disable PHY interrupts */
+	else
 		reg_set_bits(priv, MTK_2P5GPHY_CHIP_SCU + IRQ_MASK, PHY_IRQ_MASK);
-		phy_write(phydev, MTK_PHY_IRQ_MASK, 0);
-	}
 
-	return (ret < 0) ? ret : 0;
+	return mtk_phy_config_intr(phydev);
 }
 
 static int mt798x_2p5ge_phy_read_status(struct phy_device *phydev)
@@ -964,6 +941,38 @@ static void mt798x_2p5ge_phy_remove(struct phy_device *phydev)
 	phydev->priv = NULL;
 }
 
+int mt798x_2p5ge_phy_write_mmd(struct phy_device *phydev, int devnum,
+				      u16 regnum, u16 val)
+{
+	int ret;
+
+	if (devnum > 32)
+		return -EINVAL;
+
+	if (phydev->is_c45) {
+		u32 addr = MII_ADDR_C45 | (devnum << 16) | regnum;
+
+		ret = __mdiobus_write(phydev->mdio.bus, phydev->mdio.addr,
+				      addr, val);
+	} else {
+		struct mii_bus *bus = phydev->mdio.bus;
+		int phy_addr = phydev->mdio.addr;
+
+		__mdiobus_write(bus, phy_addr, MII_MMD_CTRL, devnum);
+		__mdiobus_write(bus, phy_addr, MII_MMD_DATA, regnum);
+		__mdiobus_write(bus, phy_addr, MII_MMD_CTRL,
+				devnum | MII_MMD_CTRL_NOINCR);
+
+		__mdiobus_write(bus, phy_addr, MII_MMD_DATA, val);
+
+		ret = 0;
+	}
+
+	usleep_range(7000, 8000);
+
+	return ret;
+}
+
 static struct phy_driver mtk_2p5gephy_driver[] = {
 	{
 		PHY_ID_MATCH_MODEL(MTK_2P5GPHY_ID_MT7987),
@@ -974,14 +983,15 @@ static struct phy_driver mtk_2p5gephy_driver[] = {
 		.config_aneg = mt798x_2p5ge_phy_config_aneg,
 		.get_features = mt798x_2p5ge_phy_get_features,
 		.config_intr = mt798x_2p5ge_phy_config_intr,
-		.ack_interrupt = mt798x_2p5ge_phy_ack_interrupt,
-		.handle_interrupt = &mt798x_2p5ge_phy_handle_interrupt,
+		.ack_interrupt = mtk_phy_ack_interrupt,
+		.handle_interrupt = mtk_phy_handle_interrupt,
 		.read_status = mt798x_2p5ge_phy_read_status,
 		.get_rate_matching = mt798x_2p5ge_phy_get_rate_matching,
 		.suspend = genphy_suspend,
 		.resume = genphy_resume,
 		.read_page = mtk_phy_read_page,
 		.write_page = mtk_phy_write_page,
+		.write_mmd = mt798x_2p5ge_phy_write_mmd,
 	},
 	{
 		PHY_ID_MATCH_MODEL(MTK_2P5GPHY_ID_MT7988),
@@ -992,14 +1002,15 @@ static struct phy_driver mtk_2p5gephy_driver[] = {
 		.config_aneg = mt798x_2p5ge_phy_config_aneg,
 		.get_features = mt798x_2p5ge_phy_get_features,
 		.config_intr = mt798x_2p5ge_phy_config_intr,
-		.ack_interrupt = mt798x_2p5ge_phy_ack_interrupt,
-		.handle_interrupt = &mt798x_2p5ge_phy_handle_interrupt,
+		.ack_interrupt = mtk_phy_ack_interrupt,
+		.handle_interrupt = mtk_phy_handle_interrupt,
 		.read_status = mt798x_2p5ge_phy_read_status,
 		.get_rate_matching = mt798x_2p5ge_phy_get_rate_matching,
 		.suspend = genphy_suspend,
 		.resume = genphy_resume,
 		.read_page = mtk_phy_read_page,
 		.write_page = mtk_phy_write_page,
+		.write_mmd = mt798x_2p5ge_phy_write_mmd,
 	},
 };
 
