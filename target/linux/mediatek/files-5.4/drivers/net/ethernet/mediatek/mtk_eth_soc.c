@@ -2241,14 +2241,15 @@ static void mtk_tx_set_dma_desc_v3(struct sk_buff *skb, struct net_device *dev, 
 		/* carry cdrt index for encryption */
 		cdrt = skb_hnat_cdrt(skb);
 		skb_hnat_magic_tag(skb) = 0;
+		 }
 #else
 	else if (unlikely(skb->inner_protocol == IPPROTO_ESP &&
 		 skb_tnl_cdrt(skb) && is_tnl_tag_valid(skb))) {
 		cdrt = skb_tnl_cdrt(skb);
 		skb_tnl_magic_tag(skb) = 0;
+		 }
 #endif
 		tport = EIP197_TPORT;
-	}
 
 	if (tport) {
 		data &= ~(TX_DMA_TPORT_MASK << TX_DMA_TPORT_SHIFT);
@@ -2277,6 +2278,7 @@ static void mtk_tx_set_dma_desc_v3(struct sk_buff *skb, struct net_device *dev, 
 
 	WRITE_ONCE(desc->txd7, 0);
 
+#if IS_ENABLED(CONFIG_MEDIATEK_NETSYS_V3)
 	data = 0;
 
 	if (tops_entry) {
@@ -2290,6 +2292,9 @@ static void mtk_tx_set_dma_desc_v3(struct sk_buff *skb, struct net_device *dev, 
 	}
 
 	WRITE_ONCE(desc->txd8, data);
+#else
+	WRITE_ONCE(desc->txd8, 0);
+#endif
 }
 
 static void mtk_tx_set_pdma_desc(struct sk_buff *skb, struct net_device *dev, void *txd,
