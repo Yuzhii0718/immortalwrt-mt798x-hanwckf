@@ -883,6 +883,10 @@ int cr_set_usage(int level)
 	pr_info("              6     0~255      Set UDP keep alive interval\n");
 	pr_info("              7     0~1        Set hnat counter update to nf_conntrack\n");
 	pr_info("              8     0~6        Set PPE hash simple mode\n");
+	pr_info("              9     0~1        Set CR Usage toggle (alias)\n");
+	pr_info("              10    0~1        Set hnat counter update to nf_conntrack (alias)\n");
+	pr_info("              11    0~65535    Set binding threshold (alias)\n");
+	pr_info("              12    0~1        Set macvlan HNAT toggle\n");
 
 	return 0;
 }
@@ -1060,12 +1064,20 @@ static const debugfs_write_func entry_set_func[] = {
 	[7] = wrapped_ppe2_entry_delete,
 };
 
+static int set_macvlan_toggle(int toggle)
+{
+	pr_info("macvlan HNAT toggle = %d\n", toggle);
+	return 0;
+}
+
 static const debugfs_write_func cr_set_func[] = {
 	[0] = cr_set_usage,      [1] = binding_threshold,
 	[2] = tcp_bind_lifetime, [3] = fin_bind_lifetime,
 	[4] = udp_bind_lifetime, [5] = tcp_keep_alive,
 	[6] = udp_keep_alive,    [7] = set_nf_update_toggle,
 	[8] = set_hash_simple_mode,
+	[9] = cr_set_usage,      [10] = set_nf_update_toggle,
+	[11] = binding_threshold, [12] = set_macvlan_toggle,
 };
 
 int read_mib(struct mtk_hnat *h, u32 ppe_id,
@@ -2245,6 +2257,9 @@ ssize_t hnat_setting_write(struct file *file, const char __user *buffer,
 	case 6:
 	case 7:
 	case 8:
+	case 10:
+	case 11:
+	case 12:
 		p_token = strsep(&p_buf, p_delimiter);
 		if (!p_token)
 			arg1 = 0;
@@ -2546,7 +2561,7 @@ static const struct file_operations hnat_mape_toggle_fops = {
 
 static int hnat_hook_toggle_read(struct seq_file *m, void *private)
 {
-	pr_info("value=%d, hook is %s now!\n", hook_toggle, (hook_toggle) ? "enabled" : "disabled");
+	seq_printf(m, "%s\n", hook_toggle ? "enabled" : "disabled");
 
 	return 0;
 }
@@ -3501,6 +3516,43 @@ static const struct debugfs_reg32 hnat_regs[] = {
 	dump_register(CAH_RDATA),
 };
 
+static int hnat_stats_show(struct seq_file *m, void *private)
+{
+	struct mtk_hnat *h = hnat_priv;
+	struct foe_entry *entry;
+	int i, hash_index, bind_cnt;
+
+	seq_printf(m, "PPE_NUM=%d\n", CFG_PPE_NUM);
+
+	for (i = 0; i < CFG_PPE_NUM; i++) {
+		bind_cnt = 0;
+		if (!h->foe_table_cpu[i])
+			continue;
+		entry = h->foe_table_cpu[i];
+		for (hash_index = 0; hash_index < h->foe_etry_num; hash_index++) {
+			if (entry->bfib1.state == BIND)
+				bind_cnt++;
+			entry++;
+		}
+		seq_printf(m, "ALL_PPE%d=%d\n", i, h->foe_etry_num);
+		seq_printf(m, "BIND_PPE%d=%d\n", i, bind_cnt);
+	}
+
+	return 0;
+}
+
+static int hnat_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, hnat_stats_show, file->private_data);
+}
+
+static const struct file_operations hnat_stats_fops = {
+	.open = hnat_stats_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 int hnat_init_debugfs(struct mtk_hnat *h)
 {
 	int ret = 0;
@@ -3577,6 +3629,8 @@ int hnat_init_debugfs(struct mtk_hnat *h)
 			    &hnat_l2br_toggle_fops);
 	debugfs_create_file("l4s_toggle", 0444, root, h,
 			    &hnat_l4s_toggle_fops);
+	debugfs_create_file("hnat_stats", 0444, root, h,
+			    &hnat_stats_fops);
 
 	/* init manual_api debugfs node */
 	hnat_api_init_debugfs(root);
