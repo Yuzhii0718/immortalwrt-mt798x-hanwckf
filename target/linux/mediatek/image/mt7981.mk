@@ -213,7 +213,7 @@ TARGET_DEVICES += cetron_ct3003
 
 define Device/clt-r30b1
   DEVICE_VENDOR := CLT
-  DEVICE_MODEL := CLT R30B1
+  DEVICE_MODEL := R30B1
   DEVICE_DTS := mt7981-clt-r30b1
   DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
   SUPPORTED_DEVICES := clt,30rb1
@@ -230,7 +230,7 @@ TARGET_DEVICES += clt-r30b1
 
 define Device/clt-r30b1-112M
   DEVICE_VENDOR := CLT
-  DEVICE_MODEL := CLT R30B1 (with 112M ubi)
+  DEVICE_MODEL := R30B1 (with 112M ubi)
   DEVICE_DTS := mt7981-clt-r30b1-112M
   DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
   SUPPORTED_DEVICES := clt,r30b1
