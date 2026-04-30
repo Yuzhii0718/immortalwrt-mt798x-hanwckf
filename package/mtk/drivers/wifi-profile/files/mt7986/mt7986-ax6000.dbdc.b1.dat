@@ -450,3 +450,4 @@ WEP3Type1=0
 WEP2Type1=0
 KickStaRssiLow=0
 AssocReqRssiThres=0
+ACK_CTS_TOUT_EN=1;1
