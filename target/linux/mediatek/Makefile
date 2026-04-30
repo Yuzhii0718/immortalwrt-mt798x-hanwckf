@@ -4,7 +4,7 @@ include $(TOPDIR)/rules.mk
 
 ARCH:=arm
 BOARD:=mediatek
-BOARDNAME:=MediaTek Ralink ARM
+BOARDNAME:=MediaTek Filogic ARM
 SUBTARGETS:=mt7986 mt7981
 FEATURES:=squashfs nand emmc ramdisk fpu
 
