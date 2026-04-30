@@ -32,7 +32,7 @@ function show_devs()
     for k, v in pairs(l1dat.devname_ridx) do
         -- skip MT7986-2.4G for ax7800 project
         if not(string.find(v.profile_path, "ax7800") and 
-          v.INDEX == "MT7986" and v.subidx == 1) then
+        v.INDEX == "MT7986" and v.subidx == 1) then
             table.insert(devs, k)
         end
     end
@@ -78,7 +78,7 @@ local action = {
         if not ifname then return end
 
         local zone = l1parser.l1_ifname_to_zone(ifname) or ""
-        print(zone)
+        print(zone);
     end,
 
     ["if2dat"] = function(ifname)
