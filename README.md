@@ -57,16 +57,13 @@ To build your own firmware you need a GNU/Linux, BSD or MacOSX system (case sens
      
      ```bash
      # MT7981
-     cp -f defconfig/mt7981-ax3000.config .config
+     cp -f defconfig/mt7981-ax3000-256m.config .config
 
      # MT7986
      cp -f defconfig/mt7986-ax6000.config .config
      
      # MT7986 256M Low Memory
      cp -f defconfig/mt7986-ax6000-256m.config .config
-
-     # Essential packages for advanced networking features
-     cat defconfig/essential.config >> .config
      ```
      
   6. Run `make menuconfig` to select your preferred configuration for the toolchain, target system & firmware packages.
