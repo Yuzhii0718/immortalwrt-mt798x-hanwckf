@@ -14,6 +14,8 @@ Signed-off-by: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
  net/netfilter/nft_flow_offload.c         | 441 +++++++++++-
  7 files changed, 1148 insertions(+), 241 deletions(-)
 
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index 4f77e2f..e5b2411 100644
 --- a/include/net/netfilter/nf_tables.h
 +++ b/include/net/netfilter/nf_tables.h
 @@ -27,6 +27,11 @@ struct nft_pktinfo {
@@ -2094,7 +2096,7 @@ Signed-off-by: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
  {
  	struct dst_entry *this_dst = skb_dst(pkt->skb);
  	struct dst_entry *other_dst = NULL;
-@@ -40,14 +349,100 @@ static int nft_flow_route(const struct n
+@@ -40,12 +349,94 @@ static int nft_flow_route(const struct n
  		break;
  	}
  
@@ -2105,9 +2107,11 @@ Signed-off-by: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
 -	if (!other_dst)
 +	if (!other_dst) {
 +		dst_release(this_dst);
-+		return -ENOENT;
+ 		return -ENOENT;
 +	}
-+
+ 
+-	route->tuple[dir].dst		= this_dst;
+-	route->tuple[!dir].dst		= other_dst;
 +	nft_default_forward_path(route, this_dst, dir);
 +	nft_default_forward_path(route, other_dst, !dir);
 +
@@ -2124,40 +2128,6 @@ Signed-off-by: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
 +	return 0;
 +}
 +
-+static int nft_flow_route_dir(const struct nft_pktinfo *pkt,
-+			      const struct nf_conn *ct,
-+			      struct nf_flow_route *route,
-+			      enum ip_conntrack_dir dir,
-+			      int ifindex,
-+			      struct nft_flowtable *ft)
-+{
-+	struct dst_entry *dst = NULL;
-+	struct flowi fl;
-+
-+	memset(&fl, 0, sizeof(fl));
-+	switch (nft_pf(pkt)) {
-+	case NFPROTO_IPV4:
-+		fl.u.ip4.daddr = ct->tuplehash[!dir].tuple.src.u3.ip;
-+		fl.u.ip4.flowi4_oif = ifindex;
-+		break;
-+	case NFPROTO_IPV6:
-+		fl.u.ip6.saddr = ct->tuplehash[!dir].tuple.dst.u3.in6;
-+		fl.u.ip6.daddr = ct->tuplehash[!dir].tuple.src.u3.in6;
-+		fl.u.ip6.flowi6_oif = ifindex;
-+		break;
-+	}
-+
-+	nf_route(nft_net(pkt), &dst, &fl, false, nft_pf(pkt));
-+	if (!dst)
- 		return -ENOENT;
- 
--	route->tuple[dir].dst		= this_dst;
--	route->tuple[!dir].dst		= other_dst;
-+	nft_default_forward_path(route, dst, dir);
-+
-+	return 0;
-+}
-+
 +static int
 +nft_flow_route_bridging(const struct nft_pktinfo *pkt,
 +			const struct nf_conn *ct,
@@ -2165,40 +2135,66 @@ Signed-off-by: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
 +			enum ip_conntrack_dir dir,
 +			struct nft_flowtable *ft)
 +{
-+	int ret;
++	struct dst_entry *dsts[IP_CT_DIR_MAX] = {};
++	struct net_bridge_port *port;
++	struct net_device *br_dev;
++	int i;
 +
-+	ret = nft_flow_route_dir(pkt, ct, route, dir,
-+				 nft_out(pkt)->ifindex,
-+				 ft);
-+	if (ret)
-+		return ret;
++	/* Allocate minimal dsts anchored to the bridge master device to
++	 * supply xmit_type and MTU for bridge forwarding.
++	 */
++	rcu_read_lock();
++	port = br_port_get_rcu(pkt->skb->dev);
++	if (!port) {
++		rcu_read_unlock();
++		return -ENOENT;
++	}
++	br_dev = port->br->dev;
 +
-+	ret = nft_flow_route_dir(pkt, ct, route, !dir,
-+				 nft_in(pkt)->ifindex,
-+				 ft);
-+	if (ret)
-+		goto err_route_dir1;
++	for (i = 0; i < IP_CT_DIR_MAX; i++) {
++		switch (nft_pf(pkt)) {
++		case NFPROTO_IPV4: {
++			struct rtable *rt;
++
++			rt = rt_dst_alloc(br_dev, 0, RTN_UNICAST, true, true, false);
++			if (rt)
++				dsts[i] = &rt->dst;
++			break;
++		}
++		case NFPROTO_IPV6: {
++			struct rt6_info *rt;
++
++			rt = ip6_dst_alloc(nft_net(pkt), br_dev, 0);
++			if (rt)
++				dsts[i] = &rt->dst;
++			break;
++		}
++		}
++	}
++	rcu_read_unlock();
++
++	if (!dsts[dir] || !dsts[!dir]) {
++		dst_release(dsts[dir]);
++		dst_release(dsts[!dir]);
++		return -ENOENT;
++	}
++
++	nft_default_forward_path(route, dsts[dir], dir);
++	nft_default_forward_path(route, dsts[!dir], !dir);
 +
 +	if (route->tuple[dir].xmit_type == FLOW_OFFLOAD_XMIT_NEIGH &&
 +	    route->tuple[!dir].xmit_type == FLOW_OFFLOAD_XMIT_NEIGH) {
 +		if (nft_dev_forward_path(pkt, route, ct, dir, ft) ||
 +		    nft_dev_forward_path(pkt, route, ct, !dir, ft)) {
-+			ret = -ENOENT;
-+			goto err_route_dir2;
++			dst_release(route->tuple[dir].dst);
++			dst_release(route->tuple[!dir].dst);
++			return -ENOENT;
 +		}
 +	}
  
  	return 0;
-+
-+err_route_dir2:
-+	dst_release(route->tuple[!dir].dst);
-+err_route_dir1:
-+	dst_release(route->tuple[dir].dst);
-+	return ret;
  }
- 
- static bool nft_flow_offload_skip(struct sk_buff *skb, int family)
-@@ -74,8 +469,8 @@ static void nft_flow_offload_eval(const
+@@ -74,8 +465,8 @@ static void nft_flow_offload_eval(const
  	struct nft_flow_offload *priv = nft_expr_priv(expr);
  	struct nf_flowtable *flowtable = &priv->flowtable->data;
  	struct tcphdr _tcph, *tcph = NULL;
@@ -2208,7 +2204,7 @@ Signed-off-by: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
  	struct flow_offload *flow;
  	enum ip_conntrack_dir dir;
  	struct nf_conn *ct;
-@@ -90,7 +485,10 @@ static void nft_flow_offload_eval(const
+@@ -90,7 +481,10 @@ static void nft_flow_offload_eval(const
  
  	switch (ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum) {
  	case IPPROTO_TCP:
@@ -2220,7 +2216,7 @@ Signed-off-by: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
  					  sizeof(_tcph), &_tcph);
  		if (unlikely(!tcph || tcph->fin || tcph->rst))
  			goto out;
-@@ -112,13 +510,22 @@ static void nft_flow_offload_eval(const
+@@ -112,13 +506,22 @@ static void nft_flow_offload_eval(const
  		goto out;
  
  	dir = CTINFO2DIR(ctinfo);
@@ -2246,7 +2242,7 @@ Signed-off-by: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
  	if (tcph) {
  		ct->proto.tcp.seen[0].flags |= IP_CT_TCP_FLAG_BE_LIBERAL;
  		ct->proto.tcp.seen[1].flags |= IP_CT_TCP_FLAG_BE_LIBERAL;
-@@ -128,12 +535,12 @@ static void nft_flow_offload_eval(const
+@@ -128,12 +531,12 @@ static void nft_flow_offload_eval(const
  	if (ret < 0)
  		goto err_flow_add;
  
@@ -2260,8 +2256,10 @@ Signed-off-by: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
  	dst_release(route.tuple[!dir].dst);
  err_flow_route:
  	clear_bit(IPS_OFFLOAD_BIT, &ct->status);
-@@ -257,3 +664,4 @@ module_exit(nft_flow_offload_module_exit
+@@ -257,3 +660,4 @@ module_exit(nft_flow_offload_module_exit
  MODULE_LICENSE("GPL");
  MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
  MODULE_ALIAS_NFT_EXPR("flow_offload");
 +MODULE_DESCRIPTION("nftables hardware flow offload module");
+-- 
+2.45.2

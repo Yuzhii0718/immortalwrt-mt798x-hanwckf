@@ -675,17 +675,14 @@ static int mtk_mac_prepare(struct phylink_config *config, unsigned int mode,
 	struct mtk_mac *mac = container_of(config, struct mtk_mac,
 					   phylink_config);
 	struct mtk_eth *eth = mac->hw;
-	bool has_xgmac = false;
+	bool has_xgmac[MTK_MAX_DEVS] = {0,
+					MTK_HAS_CAPS(eth->soc->caps, MTK_GMAC2_2P5GPHY) ||
+					MTK_HAS_CAPS(eth->soc->caps, MTK_GMAC2_2P5GPHY_V2) ||
+					MTK_HAS_CAPS(eth->soc->caps, MTK_GMAC2_USXGMII),
+					MTK_HAS_CAPS(eth->soc->caps, MTK_GMAC3_USXGMII)};
 	u32 val;
 
-	if (mac->id == MTK_GMAC2_ID)
-		has_xgmac = MTK_HAS_CAPS(eth->soc->caps, MTK_GMAC2_2P5GPHY) ||
-				    MTK_HAS_CAPS(eth->soc->caps, MTK_GMAC2_2P5GPHY_V2) ||
-				    MTK_HAS_CAPS(eth->soc->caps, MTK_GMAC2_USXGMII);
-	else if (mac->id == MTK_GMAC3_ID)
-		has_xgmac = MTK_HAS_CAPS(eth->soc->caps, MTK_GMAC3_USXGMII);
-
-	if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V3) && has_xgmac) {
+	if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V3) && has_xgmac[mac->id]) {
 		val = mtk_r32(mac->hw, MTK_XMAC_MCR(mac->id));
 		val &= 0xfffffff0;
 		val |= XMAC_MCR_TRX_DISABLE;
@@ -715,6 +712,7 @@ static void mtk_mac_config(struct phylink_config *config, unsigned int mode,
 	struct mtk_mac *mac = container_of(config, struct mtk_mac,
 					   phylink_config);
 	struct mtk_eth *eth = mac->hw;
+	struct net_device *dev = eth->netdev[mac->id];
 	u32 i;
 	int val = 0, ge_mode, err = 0;
 	unsigned int mac_type = mac->type;
@@ -2192,13 +2190,10 @@ static void mtk_tx_set_dma_desc_v3(struct sk_buff *skb, struct net_device *dev, 
 	struct mtk_eth *eth = mac->hw;
 	struct mtk_tx_dma_v2 *desc = txd;
 	u32 data = 0;
-
-#if IS_ENABLED(CONFIG_MEDIATEK_NETSYS_V3)
 	u32 params;
 	u8 tops_entry  = 0;
 	u8 tport = 0;
 	u8 cdrt = 0;
-#endif
 
 	WRITE_ONCE(desc->txd1, info->addr);
 
@@ -2278,7 +2273,6 @@ static void mtk_tx_set_dma_desc_v3(struct sk_buff *skb, struct net_device *dev, 
 
 	WRITE_ONCE(desc->txd7, 0);
 
-#if IS_ENABLED(CONFIG_MEDIATEK_NETSYS_V3)
 	data = 0;
 
 	if (tops_entry) {
@@ -2292,9 +2286,6 @@ static void mtk_tx_set_dma_desc_v3(struct sk_buff *skb, struct net_device *dev, 
 	}
 
 	WRITE_ONCE(desc->txd8, data);
-#else
-	WRITE_ONCE(desc->txd8, 0);
-#endif
 }
 
 static void mtk_tx_set_pdma_desc(struct sk_buff *skb, struct net_device *dev, void *txd,
