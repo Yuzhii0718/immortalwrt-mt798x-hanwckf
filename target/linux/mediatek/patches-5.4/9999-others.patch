@@ -1,0 +1,32 @@
+--- a/drivers/net/ethernet/mediatek/Makefile
++++ b/drivers/net/ethernet/mediatek/Makefile
+@@ -5,7 +5,8 @@
+ 
+ obj-$(CONFIG_NET_MEDIATEK_SOC)			+= mtk_eth.o
+ mtk_eth-y := mtk_eth_soc.o mtk_sgmii.o mtk_usxgmii.o mtk_eth_path.o mtk_eth_dbg.o mtk_eth_reset.o mtk_eth_ptp.o	\
+-	     mtk_ppe.o mtk_ppe_debugfs.o mtk_ppe_offload.o  mtk_qdma_debugfs.o
++	     mtk_ppe.o mtk_ppe_debugfs.o mtk_ppe_offload.o  mtk_qdma_debugfs.o mtk_eth_rtl822x.o
++obj-$(CONFIG_NET_MEDIATEK_SOC) += rtl822x/
+ mtk_eth-$(CONFIG_NET_MEDIATEK_SOC_WED) += mtk_wed.o
+ ifdef CONFIG_DEBUG_FS
+ mtk_eth-$(CONFIG_NET_MEDIATEK_SOC_WED) += mtk_wed_debugfs.o
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -46,6 +46,7 @@
+ #include <net/netfilter/nf_conntrack_timestamp.h>
+ #include <net/netfilter/nf_conntrack_labels.h>
+ #include <net/netfilter/nf_conntrack_synproxy.h>
++#include <net/netfilter/nf_conntrack_qos.h>
+ #if IS_ENABLED(CONFIG_NF_NAT)
+ #include <net/netfilter/nf_nat.h>
+ #include <net/netfilter/nf_nat_helper.h>
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -17,6 +17,7 @@
+ #include <linux/phylink.h>
+ #include <linux/ptp_clock_kernel.h>
+ #include <linux/rhashtable.h>
++#include <net/flow_offload.h>
+ #include "mtk_ppe.h"
+ 
+ #define MTK_QDMA_PAGE_SIZE	2048
