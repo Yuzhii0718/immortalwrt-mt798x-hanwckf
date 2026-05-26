@@ -10,15 +10,30 @@
 #include "mt7988.dtsi"
 
 / {
-	model = "MediaTek MT7988A DSA 10G SD RFB";
-	compatible = "mediatek,mt7988a-dsa-10g-sd",
+	model = "MediaTek MT7988D GSW 10G SPIM-NAND RFB";
+	compatible = "mediatek,mt7988d-gsw-10g-spim-snand",
 		     /* Reserve this for DVFS if creating new dts */
 		     "mediatek,mt7988";
+
 	chosen {
 		bootargs = "console=ttyS0,115200n1 loglevel=6  \
 			    earlycon=uart8250,mmio32,0x11000000 \
-			    root=PARTLABEL=rootfs rootwait \
-			    rootfstype=squashfs,f2fs pci=pcie_bus_perf";
+			    pci=pcie_bus_perf";
+	};
+
+	cpus {
+		/delete-node/ cpu@3;
+	};
+
+	gsw: gsw@0 {
+		compatible = "mediatek,mt753x";
+		mediatek,sysctrl = <&ethwarp>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	memory {
+		reg = <0 0x40000000 0 0x10000000>;
 	};
 
 	gpio-keys {
@@ -39,15 +54,46 @@
 		};
 	};
 
-	memory {
-		reg = <0 0x40000000 0 0x10000000>;
-	};
+	nmbm_spim_nand {
+		compatible = "generic,nmbm";
 
-	wsys_adie: wsys_adie@0 {
-	// fpga cases need to manual change adie_id / sku_type for dvt only
-		compatible = "mediatek,rebb-mt7988-adie";
-		adie_id = <7976>;
-		sku_type = <3000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		lower-mtd-device = <&spi_nand>;
+		forced-create;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "BL2";
+				reg = <0x00000 0x0100000>;
+				read-only;
+			};
+
+			partition@100000 {
+				label = "u-boot-env";
+				reg = <0x0100000 0x0080000>;
+			};
+
+			factory: partition@180000 {
+				label = "Factory";
+				reg = <0x180000 0x0400000>;
+			};
+
+			partition@580000 {
+				label = "FIP";
+				reg = <0x580000 0x0200000>;
+			};
+
+			partition@780000 {
+				label = "ubi";
+				reg = <0x780000 0x7080000>;
+			};
+		};
 	};
 
 	reg_3p3v: regulator-3p3v {
@@ -58,18 +104,17 @@
 		regulator-boot-on;
 		regulator-always-on;
 	};
+
+	wsys_adie: wsys_adie@0 {
+	// fpga cases need to manual change adie_id / sku_type for dvt only
+		compatible = "mediatek,rebb-mt7988-adie";
+		adie_id = <7976>;
+		sku_type = <3000>;
+	};
 };
 
 &fan {
 	pwms = <&pwm 0 50000>;
-	status = "okay";
-};
-
-&pwm {
-	status = "okay";
-};
-
-&uart0 {
 	status = "okay";
 };
 
@@ -125,6 +170,42 @@
 	};
 };
 
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
+};
+
+&pwm {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_flash_pins>;
+	status = "okay";
+
+	spi_nand: spi_nand@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "spi-nand";
+		spi-cal-enable;
+		spi-cal-mode = "read-data";
+		spi-cal-datalen = <7>;
+		spi-cal-data = /bits/ 8 <0x53 0x50 0x49 0x4E 0x41 0x4E 0x44>;
+		spi-cal-addrlen = <5>;
+		spi-cal-addr = /bits/ 32 <0x0 0x0 0x0 0x0 0x0>;
+		reg = <0>;
+		spi-max-frequency = <52000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+	};
+};
+
 &spi1 {
 	pinctrl-names = "default";
 	/* pin shared with snfi */
@@ -143,7 +224,7 @@
 &pcie1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pcie1_pins>;
-	status = "okay";
+	status = "disabled";
 };
 
 &pcie2 {
@@ -199,10 +280,38 @@
 		};
 	};
 
+	i2p5gbe_led0_pins: 2p5gbe-pins {
+		mux {
+			function = "led";
+			groups = "2p5gbe_led0";
+		};
+	};
+
 	i2c0_pins: i2c0-pins-g0 {
 		mux {
 			function = "i2c";
 			groups = "i2c0_1";
+		};
+	};
+
+	i2c1_pins: i2c1-pins-g0 {
+		mux {
+			function = "i2c";
+			groups = "i2c1_0";
+		};
+	};
+
+	mmc0_pins_default: mmc0-pins-default {
+		mux {
+			function = "flash";
+			groups = "sdcard";
+		};
+	};
+
+	mmc0_pins_uhs: mmc0-pins-uhs {
+		mux {
+			function = "flash";
+			groups = "sdcard";
 		};
 	};
 
@@ -237,24 +346,29 @@
 		};
 	};
 
+	spi0_flash_pins: spi0-pins {
+		mux {
+			function = "spi";
+			groups = "spi0", "spi0_wp_hold";
+		};
+
+		conf-pu {
+			pins = "SPI0_CSB", "SPI0_HOLD", "SPI0_WP";
+			drive-strength = <MTK_DRIVE_4mA>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_11>;
+		};
+
+		conf-pd {
+			pins = "SPI0_CLK", "SPI0_MOSI", "SPI0_MISO";
+			drive-strength = <MTK_DRIVE_4mA>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_11>;
+		};
+	};
+
 	spic_pins: spi1-pins {
 		mux {
 			function = "spi";
 			groups = "spi1";
-		};
-	};
-
-	mmc0_pins_default: mmc0-pins-default {
-		mux {
-			function = "flash";
-			groups = "sdcard";
-		};
-	};
-
-	mmc0_pins_uhs: mmc0-pins-uhs {
-		mux {
-			function = "flash";
-			groups = "sdcard";
 		};
 	};
 };
@@ -264,6 +378,7 @@
 };
 
 &eth {
+	qdma,pkt-rx-wdone;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mdio0_pins>;
 	status = "okay";
@@ -271,6 +386,7 @@
 	gmac0: mac@0 {
 		compatible = "mediatek,eth-mac";
 		reg = <0>;
+		mtd-mac-address = <&factory 0xFFFF4>;
 		mac-type = "xgdm";
 		phy-mode = "10gbase-kr";
 
@@ -284,14 +400,16 @@
 	gmac1: mac@1 {
 		compatible = "mediatek,eth-mac";
 		reg = <1>;
+		mtd-mac-address = <&factory 0xFFFFA>;
 		mac-type = "xgdm";
-		phy-mode = "usxgmii";
+		phy-mode = "internal";
 		phy-handle = <&phy0>;
 	};
 
 	gmac2: mac@2 {
 		compatible = "mediatek,eth-mac";
 		reg = <2>;
+		mtd-mac-address = <&factory 0xFFFEE>;
 		mac-type = "xgdm";
 		phy-mode = "usxgmii";
 		phy-handle = <&phy1>;
@@ -303,135 +421,93 @@
 		clock-frequency = <10500000>;
 
 		phy0: ethernet-phy@0 {
-			reg = <0>;
+			pinctrl-names = "i2p5gbe-led";
+			pinctrl-0 = <&i2p5gbe_led0_pins>;
+			reg = <15>;
 			compatible = "ethernet-phy-ieee802.3-c45";
-			reset-gpios = <&pio 72 1>;
-			reset-assert-us = <100000>;
-			reset-deassert-us = <221000>;
-			mdi-reversal = /bits/ 16 <1>;
+			phy-mode = "internal";
 		};
 
 		phy1: ethernet-phy@8 {
 			reg = <8>;
 			compatible = "ethernet-phy-ieee802.3-c45";
-			reset-gpios = <&pio 71 1>;
+			reset-gpios = <&pio 3 1>;
 			reset-assert-us = <100000>;
 			reset-deassert-us = <221000>;
 			mdi-reversal = /bits/ 16 <1>;
-		};
-
-		switch@0 {
-			compatible = "mediatek,mt7988";
-			mediatek,sysctrl = <&ethwarp>;
-			reg = <31>;
-			interrupt-controller;
-			#interrupt-cells = <1>;
-			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
-
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				port@0 {
-					reg = <0>;
-					label = "lan0";
-					phy-mode = "gmii";
-					phy-handle = <&sphy0>;
-				};
-
-				port@1 {
-					reg = <1>;
-					label = "lan1";
-					phy-mode = "gmii";
-					phy-handle = <&sphy1>;
-				};
-
-				port@2 {
-					reg = <2>;
-					label = "lan2";
-					phy-mode = "gmii";
-					phy-handle = <&sphy2>;
-				};
-
-				port@3 {
-					reg = <3>;
-					label = "lan3";
-					phy-mode = "gmii";
-					phy-handle = <&sphy3>;
-				};
-
-				port@6 {
-					reg = <6>;
-					label = "cpu";
-					ethernet = <&gmac0>;
-					phy-mode = "10gbase-kr";
-
-					fixed-link {
-						speed = <10000>;
-						full-duplex;
-						pause;
-					};
-				};
-			};
-
-			mdio {
-				compatible = "mediatek,dsa-slave-mdio";
-				#address-cells = <1>;
-				#size-cells = <0>;
-				mediatek,pio = <&pio>;
-
-				sphy0: switch_phy0@0 {
-					compatible = "ethernet-phy-id03a2.9481";
-					reg = <0>;
-					interrupts = <0>;
-					pinctrl-names = "gbe-led";
-					pinctrl-0 = <&gbe0_led0_pins>;
-					nvmem-cells = <&phy_calibration_p0>;
-					nvmem-cell-names = "phy-cal-data";
-				};
-
-				sphy1: switch_phy1@1 {
-					compatible = "ethernet-phy-id03a2.9481";
-					reg = <1>;
-					interrupts = <1>;
-					pinctrl-names = "gbe-led";
-					pinctrl-0 = <&gbe1_led0_pins>;
-					nvmem-cells = <&phy_calibration_p1>;
-					nvmem-cell-names = "phy-cal-data";
-				};
-
-				sphy2: switch_phy2@2 {
-					compatible = "ethernet-phy-id03a2.9481";
-					reg = <2>;
-					interrupts = <2>;
-					pinctrl-names = "gbe-led";
-					pinctrl-0 = <&gbe2_led0_pins>;
-					nvmem-cells = <&phy_calibration_p2>;
-					nvmem-cell-names = "phy-cal-data";
-				};
-
-				sphy3: switch_phy3@3 {
-					compatible = "ethernet-phy-id03a2.9481";
-					reg = <3>;
-					interrupts = <3>;
-					pinctrl-names = "gbe-led";
-					pinctrl-0 = <&gbe3_led0_pins>;
-					nvmem-cells = <&phy_calibration_p3>;
-					nvmem-cell-names = "phy-cal-data";
-				};
-			};
 		};
 	};
 };
 
 &hnat {
 	mtketh-wan = "eth1";
-	mtketh-lan = "lan";
+	mtketh-lan = "eth0";
 	mtketh-lan2 = "eth2";
 	mtketh-max-gmac = <3>;
 	mtketh-ppe-num = <3>;
 	status = "okay";
+};
+
+&gsw {
+	mediatek,mdio = <&mdio>;
+	mediatek,portmap = "llllw";
+	mediatek,mdio_master_pinmux = <1>;
+	interrupt-parent = <&gic>;
+	interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
+	status = "okay";
+
+	port6: port@6 {
+		compatible = "mediatek,mt753x-port";
+		mediatek,ssc-on;
+		phy-mode = "10gbase-kr";
+		reg = <6>;
+		fixed-link {
+			speed = <10000>;
+			full-duplex;
+		};
+	};
+
+	mdio1: mdio-bus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mediatek,pio = <&pio>;
+
+		gsw_phy0: ethernet-phy@0 {
+			compatible = "ethernet-phy-id03a2.9481";
+			reg = <0>;
+			pinctrl-names = "gbe-led";
+			pinctrl-0 = <&gbe0_led0_pins>;
+			nvmem-cells = <&phy_calibration_p0>;
+			nvmem-cell-names = "phy-cal-data";
+		};
+
+		gsw_phy1: ethernet-phy@1 {
+			compatible = "ethernet-phy-id03a2.9481";
+			reg = <1>;
+			pinctrl-names = "gbe-led";
+			pinctrl-0 = <&gbe1_led0_pins>;
+			nvmem-cells = <&phy_calibration_p1>;
+			nvmem-cell-names = "phy-cal-data";
+		};
+
+		gsw_phy2: ethernet-phy@2 {
+			compatible = "ethernet-phy-id03a2.9481";
+			reg = <2>;
+			pinctrl-names = "gbe-led";
+			pinctrl-0 = <&gbe2_led0_pins>;
+			nvmem-cells = <&phy_calibration_p2>;
+			nvmem-cell-names = "phy-cal-data";
+		};
+
+		gsw_phy3: ethernet-phy@3 {
+			compatible = "ethernet-phy-id03a2.9481";
+			reg = <3>;
+			pinctrl-names = "gbe-led";
+			pinctrl-0 = <&gbe3_led0_pins>;
+			nvmem-cells = <&phy_calibration_p3>;
+			nvmem-cell-names = "phy-cal-data";
+		};
+	};
 };
 
 &mmc0 {

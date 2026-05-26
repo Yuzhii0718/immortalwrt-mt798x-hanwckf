@@ -10,15 +10,23 @@
 #include "mt7988.dtsi"
 
 / {
-	model = "MediaTek MT7988A DSA 10G SD RFB";
-	compatible = "mediatek,mt7988a-dsa-10g-sd",
+	model = "MediaTek MT7988D DSA 10G SNFI-NAND RFB";
+	compatible = "mediatek,mt7988d-dsa-10g-snfi-snand",
 		     /* Reserve this for DVFS if creating new dts */
 		     "mediatek,mt7988";
+
 	chosen {
 		bootargs = "console=ttyS0,115200n1 loglevel=6  \
 			    earlycon=uart8250,mmio32,0x11000000 \
-			    root=PARTLABEL=rootfs rootwait \
-			    rootfstype=squashfs,f2fs pci=pcie_bus_perf";
+			    pci=pcie_bus_perf";
+	};
+
+	cpus {
+		/delete-node/ cpu@3;
+	};
+
+	memory {
+		reg = <0 0x40000000 0 0x10000000>;
 	};
 
 	gpio-keys {
@@ -39,8 +47,47 @@
 		};
 	};
 
-	memory {
-		reg = <0 0x40000000 0 0x10000000>;
+	nmbm_snfi {
+		compatible = "generic,nmbm";
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		lower-mtd-device = <&snand>;
+		forced-create;
+		empty-page-ecc-protected;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "BL2";
+				reg = <0x00000 0x0100000>;
+				read-only;
+			};
+
+			partition@100000 {
+				label = "u-boot-env";
+				reg = <0x0100000 0x0080000>;
+			};
+
+			factory: partition@180000 {
+				label = "Factory";
+				reg = <0x180000 0x0400000>;
+			};
+
+			partition@580000 {
+				label = "FIP";
+				reg = <0x580000 0x0200000>;
+			};
+
+			partition@780000 {
+				label = "ubi";
+				reg = <0x780000 0x7080000>;
+			};
+		};
 	};
 
 	wsys_adie: wsys_adie@0 {
@@ -48,15 +95,6 @@
 		compatible = "mediatek,rebb-mt7988-adie";
 		adie_id = <7976>;
 		sku_type = <3000>;
-	};
-
-	reg_3p3v: regulator-3p3v {
-		compatible = "regulator-fixed";
-		regulator-name = "fixed-3.3V";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		regulator-boot-on;
-		regulator-always-on;
 	};
 };
 
@@ -143,7 +181,7 @@
 &pcie1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pcie1_pins>;
-	status = "okay";
+	status = "disabled";
 };
 
 &pcie2 {
@@ -199,6 +237,13 @@
 		};
 	};
 
+	i2p5gbe_led0_pins: 2p5gbe-pins {
+		mux {
+			function = "led";
+			groups = "2p5gbe_led0";
+		};
+	};
+
 	i2c0_pins: i2c0-pins-g0 {
 		mux {
 			function = "i2c";
@@ -237,24 +282,17 @@
 		};
 	};
 
+	snfi_pins: snfi-pins {
+		mux {
+			function = "flash";
+			groups = "snfi";
+		};
+	};
+
 	spic_pins: spi1-pins {
 		mux {
 			function = "spi";
 			groups = "spi1";
-		};
-	};
-
-	mmc0_pins_default: mmc0-pins-default {
-		mux {
-			function = "flash";
-			groups = "sdcard";
-		};
-	};
-
-	mmc0_pins_uhs: mmc0-pins-uhs {
-		mux {
-			function = "flash";
-			groups = "sdcard";
 		};
 	};
 };
@@ -263,7 +301,16 @@
 	status = "disabled";
 };
 
+&snand {
+	pinctrl-names = "default";
+	/* pin shared with spic */
+	pinctrl-0 = <&snfi_pins>;
+	status = "okay";
+	mediatek,quad-spi;
+};
+
 &eth {
+	qdma,pkt-rx-wdone;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mdio0_pins>;
 	status = "okay";
@@ -271,6 +318,7 @@
 	gmac0: mac@0 {
 		compatible = "mediatek,eth-mac";
 		reg = <0>;
+		mtd-mac-address = <&factory 0xFFFF4>;
 		mac-type = "xgdm";
 		phy-mode = "10gbase-kr";
 
@@ -284,14 +332,16 @@
 	gmac1: mac@1 {
 		compatible = "mediatek,eth-mac";
 		reg = <1>;
+		mtd-mac-address = <&factory 0xFFFFA>;
 		mac-type = "xgdm";
-		phy-mode = "usxgmii";
+		phy-mode = "internal";
 		phy-handle = <&phy0>;
 	};
 
 	gmac2: mac@2 {
 		compatible = "mediatek,eth-mac";
 		reg = <2>;
+		mtd-mac-address = <&factory 0xFFFEE>;
 		mac-type = "xgdm";
 		phy-mode = "usxgmii";
 		phy-handle = <&phy1>;
@@ -303,18 +353,17 @@
 		clock-frequency = <10500000>;
 
 		phy0: ethernet-phy@0 {
-			reg = <0>;
+			pinctrl-names = "i2p5gbe-led";
+			pinctrl-0 = <&i2p5gbe_led0_pins>;
+			reg = <15>;
 			compatible = "ethernet-phy-ieee802.3-c45";
-			reset-gpios = <&pio 72 1>;
-			reset-assert-us = <100000>;
-			reset-deassert-us = <221000>;
-			mdi-reversal = /bits/ 16 <1>;
+			phy-mode = "internal";
 		};
 
 		phy1: ethernet-phy@8 {
 			reg = <8>;
 			compatible = "ethernet-phy-ieee802.3-c45";
-			reset-gpios = <&pio 71 1>;
+			reset-gpios = <&pio 3 1>;
 			reset-assert-us = <100000>;
 			reset-deassert-us = <221000>;
 			mdi-reversal = /bits/ 16 <1>;
@@ -431,19 +480,5 @@
 	mtketh-lan2 = "eth2";
 	mtketh-max-gmac = <3>;
 	mtketh-ppe-num = <3>;
-	status = "okay";
-};
-
-&mmc0 {
-	pinctrl-names = "default", "state_uhs";
-	pinctrl-0 = <&mmc0_pins_default>;
-	pinctrl-1 = <&mmc0_pins_uhs>;
-	bus-width = <4>;
-	max-frequency = <52000000>;
-	cap-sd-highspeed;
-	vmmc-supply = <&reg_3p3v>;
-	vqmmc-supply = <&reg_3p3v>;
-	no-mmc;
-	no-sdio;
 	status = "okay";
 };

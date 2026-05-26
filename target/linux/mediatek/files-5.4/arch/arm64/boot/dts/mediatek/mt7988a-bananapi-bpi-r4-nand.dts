@@ -5,20 +5,22 @@
  */
 
 /dts-v1/;
-#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+
 #include "mt7988.dtsi"
 
 / {
-	model = "MediaTek MT7988A DSA 10G SD RFB";
-	compatible = "mediatek,mt7988a-dsa-10g-sd",
-		     /* Reserve this for DVFS if creating new dts */
-		     "mediatek,mt7988";
+	model = "Bananapi BPI-R4";
+	compatible = "bananapi,bpi-r4", "mediatek,mt7988a";
 	chosen {
 		bootargs = "console=ttyS0,115200n1 loglevel=6  \
 			    earlycon=uart8250,mmio32,0x11000000 \
-			    root=PARTLABEL=rootfs rootwait \
-			    rootfstype=squashfs,f2fs pci=pcie_bus_perf";
+			    pci=pcie_bus_perf";
+	};
+
+	memory {
+		reg = <0 0x40000000 0 0x10000000>;
 	};
 
 	gpio-keys {
@@ -26,7 +28,7 @@
 
 		reset {
 			label = "reset";
-			linux,code = <KEY_RESTART>;
+			linux,code = <BTN_0>;
 			gpios = <&pio 13 GPIO_ACTIVE_LOW>;
 			debounce-interval = <10>;
 		};
@@ -39,8 +41,62 @@
 		};
 	};
 
-	memory {
-		reg = <0 0x40000000 0 0x10000000>;
+	gpio-leds {
+		compatible = "gpio-leds";
+
+		blue {
+			label = "bpi-r4:pio:blue";
+			gpios = <&pio 63 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		green {
+			label = "bpi-r4:pio:green";
+			gpios = <&pio 79 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
+	nmbm_spim_nand {
+		compatible = "generic,nmbm";
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		lower-mtd-device = <&spi_nand>;
+		forced-create;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "BL2";
+				reg = <0x00000 0x0100000>;
+				read-only;
+			};
+
+			partition@100000 {
+				label = "u-boot-env";
+				reg = <0x0100000 0x0080000>;
+			};
+
+			factory: partition@180000 {
+				label = "Factory";
+				reg = <0x180000 0x0400000>;
+			};
+
+			partition@580000 {
+				label = "FIP";
+				reg = <0x580000 0x0200000>;
+			};
+
+			partition@780000 {
+				label = "ubi";
+				reg = <0x780000 0x7080000>;
+			};
+		};
 	};
 
 	wsys_adie: wsys_adie@0 {
@@ -48,6 +104,33 @@
 		compatible = "mediatek,rebb-mt7988-adie";
 		adie_id = <7976>;
 		sku_type = <3000>;
+	};
+
+	sfp_esp0: sfp@0 {
+		compatible = "sff,sfp";
+		i2c-bus = <&i2c2_sfp0>;
+		mod-def0-gpios = <&pio 82 1>;
+		los-gpios = <&pio 54 0>;
+		tx-disable-gpios = <&pio 70 0>;
+		maximum-power-milliwatt = <3000>;
+	};
+
+	sfp_esp1: sfp@1 {
+		compatible = "sff,sfp";
+		i2c-bus = <&i2c2_sfp1>;
+		mod-def0-gpios = <&pio 83 1>;
+		los-gpios = <&pio 2 0>;
+		tx-disable-gpios = <&pio 0 0>;
+		maximum-power-milliwatt = <3000>;
+	};
+
+	reg_1p8v: regulator-1p8v {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-1.8V";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-boot-on;
+		regulator-always-on;
 	};
 
 	reg_3p3v: regulator-3p3v {
@@ -61,7 +144,7 @@
 };
 
 &fan {
-	pwms = <&pwm 0 50000>;
+	pwms = <&pwm 0 50000 0>;
 	status = "okay";
 };
 
@@ -71,6 +154,18 @@
 
 &uart0 {
 	status = "okay";
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins>;
+	status = "disabled";
+};
+
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins>;
+	status = "disabled";
 };
 
 &i2c0 {
@@ -125,6 +220,107 @@
 	};
 };
 
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
+};
+
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+	status = "okay";
+
+	pca9545@70 {
+		compatible = "nxp,pca9545";
+		reg = <0x70>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+
+			// MAC Address EEPROM
+			eeprom@57 {
+				compatible = "atmel,24c02";
+				reg = <0x57>;
+
+				address-bits = <8>;
+				page-size = <8>;
+				size = <256>;
+			};
+
+			// RTC AT8563
+			rtc@51 {
+				compatible = "nxp,pcf8563";
+				reg = <0x51>;
+			};
+		};
+
+		i2c2_sfp0: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x1>;
+		};
+
+		i2c2_sfp1: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x2>;
+		};
+
+		i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x3>;
+
+			// 5G WIFI MAC Address EEPROM
+			wifi_eeprom@51 {
+				compatible = "atmel,24c02";
+				reg = <0x51>;
+
+				address-bits = <8>;
+				page-size = <8>;
+				size = <256>;
+			};
+
+			// 6G WIFI MAC Address EEPROM
+			wifi_eeprom@52 {
+				compatible = "atmel,24c02";
+				reg = <0x52>;
+
+				address-bits = <8>;
+				page-size = <8>;
+				size = <256>;
+			};
+		};
+	};
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_flash_pins>;
+	status = "okay";
+
+	spi_nand: spi_nand@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "spi-nand";
+		spi-cal-enable;
+		spi-cal-mode = "read-data";
+		spi-cal-datalen = <7>;
+		spi-cal-data = /bits/ 8 <0x53 0x50 0x49 0x4E 0x41 0x4E 0x44>;
+		spi-cal-addrlen = <5>;
+		spi-cal-addr = /bits/ 32 <0x0 0x0 0x0 0x0 0x0>;
+		reg = <0>;
+		spi-max-frequency = <52000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+	};
+};
+
 &spi1 {
 	pinctrl-names = "default";
 	/* pin shared with snfi */
@@ -135,8 +331,6 @@
 &pcie0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pcie0_pins>;
-	wifi-reset-gpios = <&pio 7 GPIO_ACTIVE_HIGH>;
-	wifi-reset-msleep = <100>;
 	status = "okay";
 };
 
@@ -149,7 +343,7 @@
 &pcie2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pcie2_pins>;
-	status = "disabled";
+	status = "okay";
 };
 
 &pcie3 {
@@ -159,6 +353,20 @@
 };
 
 &pio {
+	/* GPIO 4 WIFI PWREN. output-high: enable, output-low: disable */
+	asm_sel {
+		gpio-hog;
+		gpios = <4 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+
+	/* GPIO 5 PCA9545 RST PIN, output-high */
+	pca9545_rst {
+		gpio-hog;
+		gpios = <5 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+
 	mdio0_pins: mdio0-pins {
 		mux {
 			function = "mdio";
@@ -199,17 +407,18 @@
 		};
 	};
 
-	i2c0_pins: i2c0-pins-g0 {
+	i2p5gbe_led0_pins: 2p5gbe-pins {
 		mux {
-			function = "i2c";
-			groups = "i2c0_1";
+			function = "led";
+			groups = "2p5gbe_led0";
 		};
 	};
 
 	pcie0_pins: pcie0-pins {
 		mux {
 			function = "pcie";
-			groups = "pcie_2l_0_pereset", "pcie_clk_req_n0_0";
+			groups = "pcie_2l_0_pereset", "pcie_clk_req_n0_0",
+				 "pcie_wake_n0_0";
 		};
 	};
 
@@ -237,6 +446,25 @@
 		};
 	};
 
+	spi0_flash_pins: spi0-pins {
+		mux {
+			function = "spi";
+			groups = "spi0", "spi0_wp_hold";
+		};
+
+		conf-pu {
+			pins = "SPI0_CSB", "SPI0_HOLD", "SPI0_WP";
+			drive-strength = <MTK_DRIVE_4mA>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_11>;
+		};
+
+		conf-pd {
+			pins = "SPI0_CLK", "SPI0_MOSI", "SPI0_MISO";
+			drive-strength = <MTK_DRIVE_4mA>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_11>;
+		};
+	};
+
 	spic_pins: spi1-pins {
 		mux {
 			function = "spi";
@@ -244,22 +472,61 @@
 		};
 	};
 
+	i2c0_pins: i2c0-pins-g0 {
+		mux {
+			function = "i2c";
+			groups = "i2c0_1";
+		};
+	};
+
+	i2c1_pins: i2c1-pins {
+		mux {
+			function = "i2c";
+			groups = "i2c1_0";
+		};
+	};
+
+	i2c2_pins: i2c2-pins {
+		mux {
+			function = "i2c";
+			groups = "i2c2_1";
+		};
+	};
+
+	uart1_pins: uart1-pins {
+		mux {
+			function = "uart";
+			groups = "tops_uart1_2";
+		};
+	};
+
+	uart2_pins: uart2-pins {
+		mux {
+			function = "uart";
+			groups = "uart2";
+		};
+	};
+
 	mmc0_pins_default: mmc0-pins-default {
 		mux {
 			function = "flash";
-			groups = "sdcard";
+			groups = "emmc_51";
 		};
 	};
 
 	mmc0_pins_uhs: mmc0-pins-uhs {
 		mux {
 			function = "flash";
-			groups = "sdcard";
+			groups = "emmc_51";
 		};
 	};
 };
 
 &watchdog {
+	status = "disabled";
+};
+
+&xhci0 {
 	status = "disabled";
 };
 
@@ -285,16 +552,26 @@
 		compatible = "mediatek,eth-mac";
 		reg = <1>;
 		mac-type = "xgdm";
-		phy-mode = "usxgmii";
-		phy-handle = <&phy0>;
+
+		/* support internal 2.5G PHY Copper */
+		//phy-mode = "xgmii";
+		//phy-handle = <&phy0>;
+
+		/* Support external 10G SFP+ Module */
+		phy-mode = "10gbase-kr";
+		managed = "in-band-status";
+		sfp = <&sfp_esp1>;
 	};
 
 	gmac2: mac@2 {
 		compatible = "mediatek,eth-mac";
 		reg = <2>;
 		mac-type = "xgdm";
-		phy-mode = "usxgmii";
-		phy-handle = <&phy1>;
+
+		/* Support external 10G SFP+ Module */
+		phy-mode = "10gbase-kr";
+		managed = "in-band-status";
+		sfp = <&sfp_esp0>;
 	};
 
 	mdio: mdio-bus {
@@ -303,21 +580,11 @@
 		clock-frequency = <10500000>;
 
 		phy0: ethernet-phy@0 {
-			reg = <0>;
+			pinctrl-names = "i2p5gbe-led";
+			pinctrl-0 = <&i2p5gbe_led0_pins>;
+			reg = <15>;
 			compatible = "ethernet-phy-ieee802.3-c45";
-			reset-gpios = <&pio 72 1>;
-			reset-assert-us = <100000>;
-			reset-deassert-us = <221000>;
-			mdi-reversal = /bits/ 16 <1>;
-		};
-
-		phy1: ethernet-phy@8 {
-			reg = <8>;
-			compatible = "ethernet-phy-ieee802.3-c45";
-			reset-gpios = <&pio 71 1>;
-			reset-assert-us = <100000>;
-			reset-deassert-us = <221000>;
-			mdi-reversal = /bits/ 16 <1>;
+			phy-mode = "xgmii";
 		};
 
 		switch@0 {
@@ -426,24 +693,39 @@
 };
 
 &hnat {
-	mtketh-wan = "eth1";
+	mtketh-wan = "eth2";
 	mtketh-lan = "lan";
-	mtketh-lan2 = "eth2";
+	mtketh-lan2 = "eth1";
 	mtketh-max-gmac = <3>;
-	mtketh-ppe-num = <3>;
 	status = "okay";
+};
+
+&crypto {
+	status = "disabled";
+};
+
+&slot0 {
+	mt7996@0,0 {
+		reg = <0x0000 0 0 0 0>;
+		device_type = "pci";
+		mediatek,mtd-eeprom = <&factory 0x0>;
+	};
 };
 
 &mmc0 {
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc0_pins_default>;
 	pinctrl-1 = <&mmc0_pins_uhs>;
-	bus-width = <4>;
-	max-frequency = <52000000>;
-	cap-sd-highspeed;
+	bus-width = <8>;
+	max-frequency = <200000000>;
+	cap-mmc-highspeed;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	hs400-ds-delay = <0x12814>;
+	vqmmc-supply = <&reg_1p8v>;
 	vmmc-supply = <&reg_3p3v>;
-	vqmmc-supply = <&reg_3p3v>;
-	no-mmc;
+	non-removable;
+	no-sd;
 	no-sdio;
 	status = "okay";
 };

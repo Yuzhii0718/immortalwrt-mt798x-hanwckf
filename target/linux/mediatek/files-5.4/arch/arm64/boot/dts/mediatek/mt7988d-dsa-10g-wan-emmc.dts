@@ -10,8 +10,8 @@
 #include "mt7988.dtsi"
 
 / {
-	model = "MediaTek MT7988A DSA 10G SD RFB";
-	compatible = "mediatek,mt7988a-dsa-10g-sd",
+	model = "MediaTek MT7988D DSA 10G WAN eMMC RFB";
+	compatible = "mediatek,mt7988d-dsa-10g-wan-emmc",
 		     /* Reserve this for DVFS if creating new dts */
 		     "mediatek,mt7988";
 	chosen {
@@ -19,6 +19,14 @@
 			    earlycon=uart8250,mmio32,0x11000000 \
 			    root=PARTLABEL=rootfs rootwait \
 			    rootfstype=squashfs,f2fs pci=pcie_bus_perf";
+	};
+
+	cpus {
+		/delete-node/ cpu@3;
+	};
+
+	memory {
+		reg = <0 0x40000000 0 0x10000000>;
 	};
 
 	gpio-keys {
@@ -39,15 +47,20 @@
 		};
 	};
 
-	memory {
-		reg = <0 0x40000000 0 0x10000000>;
-	};
-
 	wsys_adie: wsys_adie@0 {
 	// fpga cases need to manual change adie_id / sku_type for dvt only
 		compatible = "mediatek,rebb-mt7988-adie";
 		adie_id = <7976>;
 		sku_type = <3000>;
+	};
+
+	reg_1p8v: regulator-1p8v {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-1.8V";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-boot-on;
+		regulator-always-on;
 	};
 
 	reg_3p3v: regulator-3p3v {
@@ -143,7 +156,7 @@
 &pcie1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pcie1_pins>;
-	status = "okay";
+	status = "disabled";
 };
 
 &pcie2 {
@@ -199,6 +212,13 @@
 		};
 	};
 
+	i2p5gbe_led0_pins: 2p5gbe-pins {
+		mux {
+			function = "led";
+			groups = "2p5gbe_led0";
+		};
+	};
+
 	i2c0_pins: i2c0-pins-g0 {
 		mux {
 			function = "i2c";
@@ -247,14 +267,14 @@
 	mmc0_pins_default: mmc0-pins-default {
 		mux {
 			function = "flash";
-			groups = "sdcard";
+			groups = "emmc_51";
 		};
 	};
 
 	mmc0_pins_uhs: mmc0-pins-uhs {
 		mux {
 			function = "flash";
-			groups = "sdcard";
+			groups = "emmc_51";
 		};
 	};
 };
@@ -264,6 +284,7 @@
 };
 
 &eth {
+	qdma,pkt-rx-wdone;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mdio0_pins>;
 	status = "okay";
@@ -285,7 +306,7 @@
 		compatible = "mediatek,eth-mac";
 		reg = <1>;
 		mac-type = "xgdm";
-		phy-mode = "usxgmii";
+		phy-mode = "internal";
 		phy-handle = <&phy0>;
 	};
 
@@ -303,18 +324,17 @@
 		clock-frequency = <10500000>;
 
 		phy0: ethernet-phy@0 {
-			reg = <0>;
+			pinctrl-names = "i2p5gbe-led";
+			pinctrl-0 = <&i2p5gbe_led0_pins>;
+			reg = <15>;
 			compatible = "ethernet-phy-ieee802.3-c45";
-			reset-gpios = <&pio 72 1>;
-			reset-assert-us = <100000>;
-			reset-deassert-us = <221000>;
-			mdi-reversal = /bits/ 16 <1>;
+			phy-mode = "internal";
 		};
 
 		phy1: ethernet-phy@8 {
 			reg = <8>;
 			compatible = "ethernet-phy-ieee802.3-c45";
-			reset-gpios = <&pio 71 1>;
+			reset-gpios = <&pio 3 1>;
 			reset-assert-us = <100000>;
 			reset-deassert-us = <221000>;
 			mdi-reversal = /bits/ 16 <1>;
@@ -426,9 +446,9 @@
 };
 
 &hnat {
-	mtketh-wan = "eth1";
+	mtketh-wan = "eth2";
 	mtketh-lan = "lan";
-	mtketh-lan2 = "eth2";
+	mtketh-lan2 = "eth1";
 	mtketh-max-gmac = <3>;
 	mtketh-ppe-num = <3>;
 	status = "okay";
@@ -438,12 +458,16 @@
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc0_pins_default>;
 	pinctrl-1 = <&mmc0_pins_uhs>;
-	bus-width = <4>;
-	max-frequency = <52000000>;
-	cap-sd-highspeed;
+	bus-width = <8>;
+	max-frequency = <200000000>;
+	cap-mmc-highspeed;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	hs400-ds-delay = <0x12814>;
+	vqmmc-supply = <&reg_1p8v>;
 	vmmc-supply = <&reg_3p3v>;
-	vqmmc-supply = <&reg_3p3v>;
-	no-mmc;
+	non-removable;
+	no-sd;
 	no-sdio;
 	status = "okay";
 };

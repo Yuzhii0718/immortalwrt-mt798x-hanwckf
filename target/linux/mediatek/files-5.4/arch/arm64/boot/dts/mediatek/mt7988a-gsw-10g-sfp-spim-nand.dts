@@ -5,6 +5,8 @@
  */
 
 /dts-v1/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 #include "mt7988.dtsi"
 
 / {
@@ -14,7 +16,7 @@
 		     "mediatek,mt7988";
 
 	chosen {
-		bootargs = "console=ttyS0,115200n1 loglevel=8  \
+		bootargs = "console=ttyS0,115200n1 loglevel=6  \
 			    earlycon=uart8250,mmio32,0x11000000";
 	};
 
@@ -27,6 +29,24 @@
 
 	memory {
 		reg = <0 0x40000000 0 0x10000000>;
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		reset {
+			label = "reset";
+			linux,code = <KEY_RESTART>;
+			gpios = <&pio 13 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+		};
+
+		wps {
+			label = "wps";
+			linux,code = <KEY_WPS_BUTTON>;
+			gpios = <&pio 14 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+		};
 	};
 
 	nmbm_spim_nand {
@@ -66,7 +86,7 @@
 
 			partition@780000 {
 				label = "ubi";
-				reg = <0x780000 0x4000000>;
+				reg = <0x780000 0x7080000>;
 			};
 		};
 	};
@@ -80,19 +100,25 @@
 
 	sfp_esp0: sfp@0 {
 		compatible = "sff,sfp";
-		i2c-bus = <&i2c2>;
+		i2c-bus = <&i2c1>;
+		mod-def0-gpios = <&pio 35 1>;
+		los-gpios = <&pio 33 0>;
 		tx-disable-gpios = <&pio 29 0>;
+		maximum-power-milliwatt = <3000>;
 	};
 
 	sfp_esp1: sfp@1 {
 		compatible = "sff,sfp";
-		i2c-bus = <&i2c1>;
+		i2c-bus = <&i2c2>;
+		mod-def0-gpios = <&pio 82 1>;
+		los-gpios = <&pio 81 0>;
 		tx-disable-gpios = <&pio 36 0>;
+		maximum-power-milliwatt = <3000>;
 	};
 };
 
 &fan {
-	pwms = <&pwm 0 50000 0>;
+	pwms = <&pwm 0 50000>;
 	status = "okay";
 };
 
@@ -200,6 +226,8 @@
 &pcie0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pcie0_pins>;
+	wifi-reset-gpios = <&pio 7 GPIO_ACTIVE_HIGH>;
+	wifi-reset-msleep = <100>;
 	status = "okay";
 };
 
@@ -222,6 +250,34 @@
 };
 
 &pio {
+	gbe0_led0_pins: gbe0-pins {
+		mux {
+			function = "led";
+			groups = "gbe0_led0";
+		};
+	};
+
+	gbe1_led0_pins: gbe1-pins {
+		mux {
+			function = "led";
+			groups = "gbe1_led0";
+		};
+	};
+
+	gbe2_led0_pins: gbe2-pins {
+		mux {
+			function = "led";
+			groups = "gbe2_led0";
+		};
+	};
+
+	gbe3_led0_pins: gbe3-pins {
+		mux {
+			function = "led";
+			groups = "gbe3_led0";
+		};
+	};
+
 	i2c0_pins: i2c0-pins-g0 {
 		mux {
 			function = "i2c";
@@ -246,8 +302,7 @@
 	pcie0_pins: pcie0-pins {
 		mux {
 			function = "pcie";
-			groups = "pcie_2l_0_pereset", "pcie_clk_req_n0_0",
-				 "pcie_wake_n0_0";
+			groups = "pcie_2l_0_pereset", "pcie_clk_req_n0_0";
 		};
 	};
 
@@ -280,12 +335,24 @@
 			function = "spi";
 			groups = "spi0", "spi0_wp_hold";
 		};
+
+		conf-pu {
+			pins = "SPI0_CSB", "SPI0_HOLD", "SPI0_WP";
+			drive-strength = <MTK_DRIVE_4mA>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_11>;
+		};
+
+		conf-pd {
+			pins = "SPI0_CLK", "SPI0_MOSI", "SPI0_MISO";
+			drive-strength = <MTK_DRIVE_4mA>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_11>;
+		};
 	};
 
 	spic_pins: spi1-pins {
 		mux {
 			function = "spi";
-			groups = "spi1_1";
+			groups = "spi1";
 		};
 	};
 };
@@ -300,10 +367,12 @@
 	gmac0: mac@0 {
 		compatible = "mediatek,eth-mac";
 		reg = <0>;
+		mtd-mac-address = <&factory 0xFFFF4>;
+		mac-type = "xgdm";
 		phy-mode = "10gbase-kr";
 
 		fixed-link {
-			speed = <2500>;
+			speed = <10000>;
 			full-duplex;
 			pause;
 		};
@@ -312,6 +381,8 @@
 	gmac1: mac@1 {
 		compatible = "mediatek,eth-mac";
 		reg = <1>;
+		mtd-mac-address = <&factory 0xFFFFA>;
+		mac-type = "xgdm";
 		phy-mode = "10gbase-kr";
 		managed = "in-band-status";
 		sfp = <&sfp_esp1>;
@@ -320,6 +391,8 @@
 	gmac2: mac@2 {
 		compatible = "mediatek,eth-mac";
 		reg = <2>;
+		mtd-mac-address = <&factory 0xFFFEE>;
+		mac-type = "xgdm";
 		phy-mode = "10gbase-kr";
 		managed = "in-band-status";
 		sfp = <&sfp_esp0>;
@@ -336,6 +409,7 @@
 	mtketh-lan = "eth0";
 	mtketh-lan2 = "eth2";
 	mtketh-max-gmac = <3>;
+	mtketh-ppe-num = <3>;
 	status = "okay";
 };
 
@@ -353,7 +427,7 @@
 		phy-mode = "10gbase-kr";
 		reg = <6>;
 		fixed-link {
-			speed = <2500>;
+			speed = <10000>;
 			full-duplex;
 		};
 	};
@@ -361,13 +435,13 @@
 	mdio1: mdio-bus {
 		#address-cells = <1>;
 		#size-cells = <0>;
+		mediatek,pio = <&pio>;
 
 		gsw_phy0: ethernet-phy@0 {
 			compatible = "ethernet-phy-id03a2.9481";
 			reg = <0>;
-			phy-mode = "gmii";
-			rext = "efuse";
-			tx_r50 = "efuse";
+			pinctrl-names = "gbe-led";
+			pinctrl-0 = <&gbe0_led0_pins>;
 			nvmem-cells = <&phy_calibration_p0>;
 			nvmem-cell-names = "phy-cal-data";
 		};
@@ -375,9 +449,8 @@
 		gsw_phy1: ethernet-phy@1 {
 			compatible = "ethernet-phy-id03a2.9481";
 			reg = <1>;
-			phy-mode = "gmii";
-			rext = "efuse";
-			tx_r50 = "efuse";
+			pinctrl-names = "gbe-led";
+			pinctrl-0 = <&gbe1_led0_pins>;
 			nvmem-cells = <&phy_calibration_p1>;
 			nvmem-cell-names = "phy-cal-data";
 		};
@@ -385,9 +458,8 @@
 		gsw_phy2: ethernet-phy@2 {
 			compatible = "ethernet-phy-id03a2.9481";
 			reg = <2>;
-			phy-mode = "gmii";
-			rext = "efuse";
-			tx_r50 = "efuse";
+			pinctrl-names = "gbe-led";
+			pinctrl-0 = <&gbe2_led0_pins>;
 			nvmem-cells = <&phy_calibration_p2>;
 			nvmem-cell-names = "phy-cal-data";
 		};
@@ -395,9 +467,8 @@
 		gsw_phy3: ethernet-phy@3 {
 			compatible = "ethernet-phy-id03a2.9481";
 			reg = <3>;
-			phy-mode = "gmii";
-			rext = "efuse";
-			tx_r50 = "efuse";
+			pinctrl-names = "gbe-led";
+			pinctrl-0 = <&gbe3_led0_pins>;
 			nvmem-cells = <&phy_calibration_p3>;
 			nvmem-cell-names = "phy-cal-data";
 		};

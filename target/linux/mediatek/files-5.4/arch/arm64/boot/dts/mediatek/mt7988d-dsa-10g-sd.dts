@@ -10,8 +10,8 @@
 #include "mt7988.dtsi"
 
 / {
-	model = "MediaTek MT7988A DSA 10G SD RFB";
-	compatible = "mediatek,mt7988a-dsa-10g-sd",
+	model = "MediaTek MT7988D DSA 10G SD RFB";
+	compatible = "mediatek,mt7988d-dsa-10g-sd",
 		     /* Reserve this for DVFS if creating new dts */
 		     "mediatek,mt7988";
 	chosen {
@@ -19,6 +19,14 @@
 			    earlycon=uart8250,mmio32,0x11000000 \
 			    root=PARTLABEL=rootfs rootwait \
 			    rootfstype=squashfs,f2fs pci=pcie_bus_perf";
+	};
+
+	cpus {
+		/delete-node/ cpu@3;
+	};
+
+	memory {
+		reg = <0 0x40000000 0 0x10000000>;
 	};
 
 	gpio-keys {
@@ -37,10 +45,6 @@
 			gpios = <&pio 14 GPIO_ACTIVE_LOW>;
 			debounce-interval = <10>;
 		};
-	};
-
-	memory {
-		reg = <0 0x40000000 0 0x10000000>;
 	};
 
 	wsys_adie: wsys_adie@0 {
@@ -143,7 +147,7 @@
 &pcie1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pcie1_pins>;
-	status = "okay";
+	status = "disabled";
 };
 
 &pcie2 {
@@ -196,6 +200,13 @@
 		mux {
 			function = "led";
 			groups = "gbe3_led0";
+		};
+	};
+
+	i2p5gbe_led0_pins: 2p5gbe-pins {
+		mux {
+			function = "led";
+			groups = "2p5gbe_led0";
 		};
 	};
 
@@ -264,6 +275,7 @@
 };
 
 &eth {
+	qdma,pkt-rx-wdone;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mdio0_pins>;
 	status = "okay";
@@ -285,7 +297,7 @@
 		compatible = "mediatek,eth-mac";
 		reg = <1>;
 		mac-type = "xgdm";
-		phy-mode = "usxgmii";
+		phy-mode = "internal";
 		phy-handle = <&phy0>;
 	};
 
@@ -303,18 +315,17 @@
 		clock-frequency = <10500000>;
 
 		phy0: ethernet-phy@0 {
-			reg = <0>;
+			pinctrl-names = "i2p5gbe-led";
+			pinctrl-0 = <&i2p5gbe_led0_pins>;
+			reg = <15>;
 			compatible = "ethernet-phy-ieee802.3-c45";
-			reset-gpios = <&pio 72 1>;
-			reset-assert-us = <100000>;
-			reset-deassert-us = <221000>;
-			mdi-reversal = /bits/ 16 <1>;
+			phy-mode = "internal";
 		};
 
 		phy1: ethernet-phy@8 {
 			reg = <8>;
 			compatible = "ethernet-phy-ieee802.3-c45";
-			reset-gpios = <&pio 71 1>;
+			reset-gpios = <&pio 3 1>;
 			reset-assert-us = <100000>;
 			reset-deassert-us = <221000>;
 			mdi-reversal = /bits/ 16 <1>;

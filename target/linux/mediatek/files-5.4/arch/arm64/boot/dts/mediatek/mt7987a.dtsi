@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2023 MediaTek Inc.
+ * Author: Sam.Shih <sam.shih@mediatek.com>
+ */
+
+/dts-v1/;
+#include <dt-bindings/leds/common.h>
+#include "mt7987.dtsi"
+#include "mt7987-pinctrl.dtsi"
+
+/ {
+	compatible = "mediatek,mt7987a", "mediatek,mt7987";
+
+	memory {
+		reg = <0 0x40000000 0 0x10000000>;
+	};
+
+};
+
+&afe {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcm_pins>;
+	status = "okay";
+};
+
+&boottrap {
+	status = "okay";
+};
+
+/* use pwm0 as fan: share with pwm_led/pwm_rgb */
+&fan {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm_pins>;
+	pwms = <&pwm 0 50000 0>;
+	status = "disabled";
+};
+
+/* use pwm0 as led: share with fan/pwm_rgb */
+&pwm_led {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm_pins>;
+	status = "okay";
+
+	led {
+		pwms = <&pwm 0 50000 0>;
+		max-brightness = <255>;
+		active-low;
+		linux,default-trigger = "default-on";
+	};
+};
+
+/* use pwm0/1/2 as multicolor LED: share with fan/pwm_led */
+&pwm_rgb {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm_rgb_pins>;
+	status = "disabled";
+
+	multi-led {
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		max-brightness = <255>;
+
+		led-red {
+			pwms = <&pwm 0 50000>;
+			color = <LED_COLOR_ID_RED>;
+		};
+
+		led-green {
+			pwms = <&pwm 1 50000>;
+			color = <LED_COLOR_ID_GREEN>;
+		};
+
+		led-blue {
+			pwms = <&pwm 2 50000>;
+			color = <LED_COLOR_ID_BLUE>;
+		};
+	};
+};
+
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pins>;
+	status = "okay";
+};
+
+&infra_bus_prot {
+	status = "okay";
+};
+
+&lvts {
+	status = "okay";
+};
+
+&pcie0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie0_pins>;
+	wifi-reset-gpios = <&pio 38 GPIO_ACTIVE_HIGH>;
+	wifi-reset-msleep = <100>;
+	status = "okay";
+};
+
+&pcie1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie1_pins>;
+	status = "disabled";
+};
+
+&pwm {
+	status = "okay";
+};
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spic_pins>;
+	status = "okay";
+};
+
+&trng {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&watchdog {
+	status = "okay";
+};
+
+&xhci {
+	mediatek,u3p-dis-msk = <0x00000001>;
+	phys = <&tphyu2port0 PHY_TYPE_USB2>;
+
+	clocks = <&infracfg_ao CK_INFRA_USB_SYS_CK_P1>,
+		 <&infracfg_ao CK_INFRA_USB_XHCI_CK_P1>,
+		 <&infracfg_ao CK_INFRA_USB_CK_P1>,
+		 <&infracfg_ao CK_INFRA_66M_USB_HCK_CK_P1>,
+		 <&infracfg_ao CK_INFRA_133M_USB_HCK_CK_P1>;
+	clock-names = "sys_ck", "xhci_ck", "ref_ck", "mcu_ck",
+		      "dma_ck";
+
+	status = "okay";
+};
