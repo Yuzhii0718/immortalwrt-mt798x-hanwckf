@@ -1,0 +1,65 @@
+--- a/drivers/net/ethernet/mediatek/Kconfig
++++ b/drivers/net/ethernet/mediatek/Kconfig
+@@ -20,6 +20,12 @@ config MEDIATEK_NETSYS_V2
+ 	---help---
+ 	  This options enable MTK Ethernet NETSYS V2 support
+ 
++config MEDIATEK_PPE_32K
++	tristate "MediaTek PPE entry to 32K for MT7986"
++	depends on ARCH_MEDIATEK && NET_MEDIATEK_SOC
++	---help---
++	  This option enables MTK Ethernet PPE entry to 32K for MT7986
++
+ config MEDIATEK_NETSYS_V3
+ 	tristate "MediaTek Ethernet NETSYS V3 support"
+ 	depends on ARCH_MEDIATEK && NET_MEDIATEK_SOC
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -1767,6 +1767,7 @@ enum mtk_capability {
+ 	MTK_NETSYS_V2_BIT,
+ 	MTK_NETSYS_RX_V2_BIT,
+ 	MTK_NETSYS_RX_9K_BIT,
++	MTK_PPE_32K_BIT,
+ 	MTK_NETSYS_V3_BIT,
+ 	MTK_HWTSTAMP_BIT,
+ 	MTK_SOC_MT7628_BIT,
+@@ -1824,6 +1825,7 @@
+ #define MTK_NETSYS_V2		BIT_ULL(MTK_NETSYS_V2_BIT)
+ #define MTK_NETSYS_RX_V2	BIT(MTK_NETSYS_RX_V2_BIT)
+ #define MTK_NETSYS_RX_9K	BIT_ULL(MTK_NETSYS_RX_9K_BIT)
++#define MTK_PPE_32K         BIT_ULL(MTK_PPE_32K_BIT)
+ #define MTK_NETSYS_V3		BIT_ULL(MTK_NETSYS_V3_BIT)
+ #define MTK_HWTSTAMP		BIT_ULL(MTK_HWTSTAMP_BIT)
+ #define MTK_SOC_MT7628		BIT_ULL(MTK_SOC_MT7628_BIT)
+@@ -1938,7 +1940,7 @@
+ 
+ #define MT7986_CAPS   (MTK_PDMA_INT | MTK_GMAC1_SGMII | MTK_GMAC2_SGMII | \
+ 		       MTK_MUX_GMAC12_TO_GEPHY_SGMII | MTK_QDMA_V1_2 | \
+-		       MTK_NETSYS_V2 | MTK_RSS)
++		       MTK_NETSYS_V2 | MTK_PPE_32K | MTK_RSS)
+ 
+ #define MT7981_CAPS   (MTK_PDMA_INT | MTK_GMAC1_SGMII | MTK_GMAC2_SGMII | \
+ 		       MTK_GMAC2_GEPHY | MTK_MUX_GMAC12_TO_GEPHY_SGMII | MTK_QDMA_V1_2 | \
+--- a/drivers/net/ethernet/mediatek/mtk_hnat/hnat.h
++++ b/drivers/net/ethernet/mediatek/mtk_hnat/hnat.h
+@@ -894,12 +894,18 @@
+ /* If user wants to change default FOE entry number, both DEF_ETRY_NUM and
+  * DEF_ETRY_NUM_CFG need to be modified.
+  */
+-#define DEF_ETRY_NUM		16384
++#if defined(CONFIG_MEDIATEK_PPE_32K)
++#define DEF_ETRY_NUM           32768
+ /* feasible values : 32768, 16384, 8192, 4096, 2048, 1024 */
+-#define DEF_ETRY_NUM_CFG	TABLE_16K
++#define DEF_ETRY_NUM_CFG	TABLE_32K
+ /* corresponding values : TABLE_32K, TABLE_16K, TABLE_8K, TABLE_4K, TABLE_2K,
+  * TABLE_1K
+  */
++#else
++#define DEF_ETRY_NUM           16384
++#define DEF_ETRY_NUM_CFG       TABLE_16K
++#endif
++
+ #define MAX_EXT_DEVS		(0x3fU)
+ #define MAX_IF_NUM		64
+ 
