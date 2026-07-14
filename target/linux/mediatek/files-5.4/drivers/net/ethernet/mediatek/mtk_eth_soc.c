@@ -2262,15 +2262,16 @@ static void mtk_tx_set_dma_desc_v3(struct sk_buff *skb, struct net_device *dev, 
 		/* carry cdrt index for encryption */
 		cdrt = skb_hnat_cdrt(skb);
 		skb_hnat_magic_tag(skb) = 0;
-		 }
+		tport = EIP197_TPORT;
+	}
 #else
 	else if (unlikely(skb->inner_protocol == IPPROTO_ESP &&
 		 skb_tnl_cdrt(skb) && is_tnl_tag_valid(skb))) {
 		cdrt = skb_tnl_cdrt(skb);
 		skb_tnl_magic_tag(skb) = 0;
-		 }
-#endif
 		tport = EIP197_TPORT;
+	}
+#endif
 
 	if (tport) {
 		data &= ~(TX_DMA_TPORT_MASK << TX_DMA_TPORT_SHIFT);
