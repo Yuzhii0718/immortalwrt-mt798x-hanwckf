@@ -151,8 +151,9 @@ function getPorts(board, netdevs, switches, portflow, ethinfoData) {
   const lan = getNetdev(netdevs, 'br-lan');
   const wan = getNetdev(netdevs, board?.network?.wan?.device);
   for (const port of switch0.ports) {
-    const label = port.label.toUpperCase();
-    const portstate = switch0.portstate[port.num];
+    const label = String(port.label || '').toUpperCase();
+    const portstate = switch0.portstate?.[port.num];
+    if (!portstate || typeof portstate !== 'object') continue;
     portstate.ifname = label;
     portstate.carrier = portstate.link;
     if (portflow[port.num]) {
