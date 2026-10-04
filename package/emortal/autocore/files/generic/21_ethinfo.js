@@ -121,72 +121,112 @@ function getEthInfoPorts(ethinfo, netdevs) {
   return ports;
 }
 
+function pushNetdevPort(ports, seen, dev, fallbackName) {
+  const name = dev.name || fallbackName;
+  if (!name) return;
+
+  seen.add(String(name).toLowerCase());
+  ports.push({
+    ifname: name,
+    carrier: dev.link?.carrier,
+    duplex: dev.link?.duplex,
+    speed: dev.link?.speed,
+    txflow: dev.stats?.tx_bytes ?? 0,
+    rxflow: dev.stats?.rx_bytes ?? 0
+  });
+}
+
+function getDsaPorts(board, netdevs, seen) {
+  const ports = [];
+  const wan = board?.network?.wan?.device;
+  const ifnames = [wan, 'lan0', 'lan1', 'lan2', 'lan3', 'lan4', 'lan5', 'lan6'];
+
+  for (const ifname of ifnames) {
+    if (!ifname || seen.has(String(ifname).toLowerCase())) continue;
+
+    const dev = getNetdev(netdevs, ifname);
+    if (!dev) continue;
+
+    pushNetdevPort(ports, seen, dev, ifname);
+  }
+
+  return ports;
+}
+
 function getPorts(board, netdevs, switches, portflow, ethinfoData) {
   const ports = [];
+  const seen = new Set();
+  const isDSA = Object.keys(switches).length === 0;
 
   const ethinfo = Array.isArray(ethinfoData?.ethinfo) ? ethinfoData.ethinfo : [];
-  if (ethinfo.length > 0) return getEthInfoPorts(ethinfo, netdevs);
-
-  if (Object.keys(switches).length === 0) {
+  if (ethinfo.length > 0) {
+    for (const port of getEthInfoPorts(ethinfo, netdevs)) {
+      seen.add(String(port.ifname || '').toLowerCase());
+      ports.push(port);
+    }
+  } else if (isDSA) {
     const network = board?.network || {};
-    const ifnames = [network?.wan?.device].concat(network?.lan?.ports || []);
+    const ifnames = [network?.wan?.device]
+      .concat(network?.lan?.ports || [])
+      .concat(network?.lan?.ifname ? String(network.lan.ifname).trim().split(/\s+/) : []);
+
     for (const ifname of ifnames) {
+      if (!ifname || seen.has(String(ifname).toLowerCase())) continue;
+
       const dev = getNetdev(netdevs, ifname);
       if (!dev) continue;
-      ports.push({
-        ifname: dev.name,
-        carrier: dev.link.carrier,
-        duplex: dev.link.duplex,
-        speed: dev.link.speed,
-        txflow: dev.stats.tx_bytes,
-        rxflow: dev.stats.rx_bytes
+
+      pushNetdevPort(ports, seen, dev, ifname);
+    }
+  } else {
+    let wanInSwitch;
+    const switch0 = switches['switch0'];
+    if (!switch0 || !Array.isArray(switch0.ports)) return ports;
+    const lan = getNetdev(netdevs, 'br-lan');
+    const wan = getNetdev(netdevs, board?.network?.wan?.device);
+    for (const port of switch0.ports) {
+      const label = String(port.label || '').toUpperCase();
+      const portstate = switch0.portstate?.[port.num];
+      if (!portstate || typeof portstate !== 'object') continue;
+      portstate.ifname = label;
+      portstate.carrier = portstate.link;
+      if (portflow[port.num]) {
+        portstate.txflow = portflow[port.num].txflow;
+        portstate.rxflow = portflow[port.num].rxflow;
+      }
+      if (label.startsWith('WAN')) {
+        wanInSwitch = true;
+        if (!portstate.rxflow && wan) {
+          portstate.txflow = wan.stats.tx_bytes;
+          portstate.rxflow = wan.stats.rx_bytes;
+        }
+        ports.unshift(portstate);
+      } else if (label.startsWith('LAN')) {
+        if (!portstate.rxflow && lan) {
+          portstate.txflow = lan.stats.tx_bytes;
+          portstate.rxflow = lan.stats.rx_bytes;
+        }
+        ports.push(portstate);
+      }
+    }
+    if (wanInSwitch) return ports;
+
+    if (wan) {
+      ports.unshift({
+        ifname: 'WAN',
+        carrier: wan.link.carrier,
+        duplex: wan.link.duplex,
+        speed: wan.link.speed,
+        txflow: wan.stats.tx_bytes,
+        rxflow: wan.stats.rx_bytes
       });
     }
     return ports;
   }
 
-  let wanInSwitch;
-  const switch0 = switches['switch0'];
-  if (!switch0 || !Array.isArray(switch0.ports)) return ports;
-  const lan = getNetdev(netdevs, 'br-lan');
-  const wan = getNetdev(netdevs, board?.network?.wan?.device);
-  for (const port of switch0.ports) {
-    const label = String(port.label || '').toUpperCase();
-    const portstate = switch0.portstate?.[port.num];
-    if (!portstate || typeof portstate !== 'object') continue;
-    portstate.ifname = label;
-    portstate.carrier = portstate.link;
-    if (portflow[port.num]) {
-      portstate.txflow = portflow[port.num].txflow;
-      portstate.rxflow = portflow[port.num].rxflow;
-    }
-    if (label.startsWith('WAN')) {
-      wanInSwitch = true;
-      if (!portstate.rxflow && wan) {
-        portstate.txflow = wan.stats.tx_bytes;
-        portstate.rxflow = wan.stats.rx_bytes;
-      }
-      ports.unshift(portstate);
-    } else if (label.startsWith('LAN')) {
-      if (!portstate.rxflow && lan) {
-        portstate.txflow = lan.stats.tx_bytes;
-        portstate.rxflow = lan.stats.rx_bytes;
-      }
-      ports.push(portstate);
-    }
-  }
-  if (wanInSwitch) return ports;
+  if (isDSA)
+    ports.push(...getDsaPorts(board, netdevs, seen));
 
-  if (wan) {
-    ports.unshift({
-      ifname: 'WAN',
-      carrier: wan.link.carrier,
-      duplex: wan.link.duplex,
-      speed: wan.link.speed,
-      txflow: wan.stats.tx_bytes,
-      rxflow: wan.stats.rx_bytes
-    });
-  }
   return ports;
 }
 
