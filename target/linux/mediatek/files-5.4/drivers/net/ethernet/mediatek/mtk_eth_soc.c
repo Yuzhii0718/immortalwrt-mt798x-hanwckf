@@ -21,7 +21,9 @@
 #include <linux/interrupt.h>
 #include <linux/pinctrl/devinfo.h>
 #include <linux/phylink.h>
+#include <linux/gpio.h>
 #include <linux/gpio/consumer.h>
+#include <linux/of_gpio.h>
 #include <net/dsa.h>
 
 #include "mtk_eth_soc.h"
@@ -6504,6 +6506,8 @@ static int mtk_probe(struct platform_device *pdev)
 {
 	struct device_node *mac_np, *mux_np;
 	struct mtk_eth *eth;
+	u32 ext_phy_reg;
+	int ext_reset_pin;
 	int err, i;
 
 	eth = devm_kzalloc(&pdev->dev, sizeof(*eth), GFP_KERNEL);
@@ -6700,6 +6704,26 @@ static int mtk_probe(struct platform_device *pdev)
 			of_node_put(mac_np);
 			goto err_deinit_hw;
 		}
+
+		/* A few boards describe their external (2.5G WAN) PHY with the
+		 * legacy "ext-phy-reset-gpios" property instead of a PHY node
+		 * with "reset-gpios". Release the PHY from reset here, before
+		 * the MDIO bus is registered, so that the PHY has finished
+		 * booting when its driver is probed. Otherwise the PHY stays
+		 * in reset, the WAN MAC keeps reporting a bogus 2.5G link and
+		 * no packet can pass (DHCP/PPPoE fail).
+		 */
+		ext_reset_pin = of_get_named_gpio(mac_np, "ext-phy-reset-gpios", 0);
+		if (ext_reset_pin >= 0) {
+			dev_info(eth->dev, "Ext-phy gpio : %d\n", ext_reset_pin);
+			if (!devm_gpio_request(eth->dev, ext_reset_pin,
+					       "ext-phy-reset")) {
+				gpio_direction_output(ext_reset_pin, 0);
+				msleep(300);
+				gpio_set_value(ext_reset_pin, 1);
+				msleep(500);
+			}
+		}
 	}
 
 	err = mtk_napi_init(eth);
@@ -6865,6 +6889,23 @@ static int mtk_probe(struct platform_device *pdev)
 			      MTK_DMA_MONITOR_TIMEOUT);
 	dev_info(eth->dev, "DMA Monitor is running ! (%s)\n", MTK_ETH_RESET_VERSION);
 #endif
+
+	/* Legacy external PHY bring-up: boards using "ext-phy-reg" instead of
+	 * a "phy-handle" rely on the ethernet driver to run the vendor
+	 * specific initialisation (e.g. enabling rate adaption on the 2.5G
+	 * WAN PHY).
+	 */
+	for_each_child_of_node(pdev->dev.of_node, mac_np) {
+		if (!of_device_is_compatible(mac_np, "mediatek,eth-mac"))
+			continue;
+
+		if (of_property_read_u32_index(mac_np, "ext-phy-reg", 0,
+					       &ext_phy_reg))
+			continue;
+
+		dev_info(eth->dev, "Ext-phy reg : %d\n", ext_phy_reg);
+		mtk_soc_extphy_init(eth, ext_phy_reg);
+	}
 
 	return 0;
 

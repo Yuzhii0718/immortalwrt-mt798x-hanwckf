@@ -2463,6 +2463,9 @@ struct phylink_pcs *mtk_usxgmii_select_pcs(struct mtk_usxgmii *ss, unsigned int 
 int mtk_usxgmii_init(struct mtk_eth *eth, struct device_node *r);
 int mtk_toprgu_init(struct mtk_eth *eth, struct device_node *r);
 
+/* legacy external PHY (2.5G WAN PHY) initialisation, see mtk_eth_rtl822x.c */
+int mtk_soc_extphy_init(struct mtk_eth *eth, int addr);
+
 void mtk_eth_set_dma_device(struct mtk_eth *eth, struct device *dma_dev);
 u32 mtk_rss_indr_table(struct mtk_rss_params *rss_params, int index);
 
