@@ -109,22 +109,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  {
  	struct mvpp2_port *port = mvpp2_phylink_to_port(config);
  	u32 val;
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1209,9 +1209,10 @@ out:
- 	mtk_w32(eth, val, MTK_QTX_SCH(idx));
- }
- 
--static void mtk_mac_link_up(struct phylink_config *config, unsigned int mode,
--			    phy_interface_t interface,
--			    struct phy_device *phy)
-+static void mtk_mac_link_up(struct phylink_config *config,
-+			    struct phy_device *phy,
-+			    unsigned int mode, phy_interface_t interface,
-+			    int speed, int duplex, bool tx_pause, bool rx_pause)
- {
- 	struct mtk_mac *mac = container_of(config, struct mtk_mac,
- 					   phylink_config);
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 @@ -925,8 +925,10 @@ static void stmmac_mac_link_down(struct
