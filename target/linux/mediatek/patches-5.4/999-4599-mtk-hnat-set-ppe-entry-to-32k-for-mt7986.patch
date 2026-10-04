@@ -1,0 +1,15 @@
+--- a/drivers/net/ethernet/mediatek/Kconfig
++++ b/drivers/net/ethernet/mediatek/Kconfig
+@@ -20,6 +20,12 @@ config MEDIATEK_NETSYS_V2
+ 	---help---
+ 	  This options enable MTK Ethernet NETSYS V2 support
+ 
++config MEDIATEK_PPE_32K
++	tristate "MediaTek PPE entry to 32K for MT7986"
++	depends on ARCH_MEDIATEK && NET_MEDIATEK_SOC
++	---help---
++	  This option enables MTK Ethernet PPE entry to 32K for MT7986
++
+ config MEDIATEK_NETSYS_V3
+ 	tristate "MediaTek Ethernet NETSYS V3 support"
+ 	depends on ARCH_MEDIATEK && NET_MEDIATEK_SOC
