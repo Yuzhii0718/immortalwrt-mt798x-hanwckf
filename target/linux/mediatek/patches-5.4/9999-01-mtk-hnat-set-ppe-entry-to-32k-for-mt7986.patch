@@ -13,33 +13,6 @@
  config MEDIATEK_NETSYS_V3
  	tristate "MediaTek Ethernet NETSYS V3 support"
  	depends on ARCH_MEDIATEK && NET_MEDIATEK_SOC
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -1767,6 +1767,7 @@ enum mtk_capability {
- 	MTK_NETSYS_V2_BIT,
- 	MTK_NETSYS_RX_V2_BIT,
- 	MTK_NETSYS_RX_9K_BIT,
-+	MTK_PPE_32K_BIT,
- 	MTK_NETSYS_V3_BIT,
- 	MTK_HWTSTAMP_BIT,
- 	MTK_SOC_MT7628_BIT,
-@@ -1824,6 +1825,7 @@
- #define MTK_NETSYS_V2		BIT_ULL(MTK_NETSYS_V2_BIT)
- #define MTK_NETSYS_RX_V2	BIT(MTK_NETSYS_RX_V2_BIT)
- #define MTK_NETSYS_RX_9K	BIT_ULL(MTK_NETSYS_RX_9K_BIT)
-+#define MTK_PPE_32K         BIT_ULL(MTK_PPE_32K_BIT)
- #define MTK_NETSYS_V3		BIT_ULL(MTK_NETSYS_V3_BIT)
- #define MTK_HWTSTAMP		BIT_ULL(MTK_HWTSTAMP_BIT)
- #define MTK_SOC_MT7628		BIT_ULL(MTK_SOC_MT7628_BIT)
-@@ -1938,7 +1940,7 @@
- 
- #define MT7986_CAPS   (MTK_PDMA_INT | MTK_GMAC1_SGMII | MTK_GMAC2_SGMII | \
- 		       MTK_MUX_GMAC12_TO_GEPHY_SGMII | MTK_QDMA_V1_2 | \
--		       MTK_NETSYS_V2 | MTK_RSS)
-+		       MTK_NETSYS_V2 | MTK_PPE_32K | MTK_RSS)
- 
- #define MT7981_CAPS   (MTK_PDMA_INT | MTK_GMAC1_SGMII | MTK_GMAC2_SGMII | \
- 		       MTK_GMAC2_GEPHY | MTK_MUX_GMAC12_TO_GEPHY_SGMII | MTK_QDMA_V1_2 | \
 --- a/drivers/net/ethernet/mediatek/mtk_hnat/hnat.h
 +++ b/drivers/net/ethernet/mediatek/mtk_hnat/hnat.h
 @@ -894,12 +894,18 @@
