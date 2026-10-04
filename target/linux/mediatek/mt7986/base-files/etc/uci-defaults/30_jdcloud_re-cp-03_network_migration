@@ -1,0 +1,71 @@
+#!/bin/sh
+
+. /lib/functions/system.sh
+
+[ "$(board_name)" = "jdcloud,re-cp-03" ] || exit 0
+
+lan_device="$(uci -q get network.lan.device)"
+lan_ifname="$(uci -q get network.lan.ifname)"
+wan_device="$(uci -q get network.wan.device)"
+wan_ifname="$(uci -q get network.wan.ifname)"
+wan6_ifname="$(uci -q get network.wan6.ifname)"
+wan6_device="$(uci -q get network.wan6.device)"
+
+legacy_lan=0
+legacy_wan=0
+
+case " $lan_device $lan_ifname " in
+*" eth0 "*|*" switch0 "*)
+	legacy_lan=1
+	;;
+esac
+
+if uci -q show network | grep -qE "^network\..*=switch$|^network\..*=switch_vlan$"; then
+	legacy_lan=1
+fi
+
+[ "$wan_device" = "eth0" ] && legacy_wan=1
+[ -n "$wan_ifname" ] && legacy_wan=1
+[ -n "$wan6_ifname" ] && legacy_wan=1
+
+[ "$legacy_lan" -eq 1 ] || [ "$legacy_wan" -eq 1 ] || exit 0
+
+if [ "$legacy_lan" -eq 1 ]; then
+	br_lan_dev="$(uci -q show network | sed -n "s/^network\.\([^=]*\)\.name='br-lan'$/\1/p" | head -n1)"
+	[ -n "$br_lan_dev" ] || {
+		br_lan_dev="br_lan"
+		uci -q set "network.${br_lan_dev}=device"
+	}
+
+	uci -q batch <<-EOF >/dev/null
+		set network.lan.device='br-lan'
+		delete network.lan.ifname
+		set network.${br_lan_dev}.type='bridge'
+		set network.${br_lan_dev}.name='br-lan'
+		delete network.${br_lan_dev}.ports
+		add_list network.${br_lan_dev}.ports='lan1'
+		add_list network.${br_lan_dev}.ports='lan2'
+		add_list network.${br_lan_dev}.ports='lan3'
+		add_list network.${br_lan_dev}.ports='lan4'
+	EOF
+
+	for section in $(uci -q show network | sed -n "s/^network\.\([^=]*\)=switch$/\1/p; s/^network\.\([^=]*\)=switch_vlan$/\1/p"); do
+		uci -q delete "network.${section}"
+	done
+fi
+
+if [ "$legacy_wan" -eq 1 ]; then
+	uci -q batch <<-EOF >/dev/null
+		set network.wan.device='eth1'
+		delete network.wan.ifname
+	EOF
+
+	if uci -q get network.wan6 >/dev/null; then
+		[ -n "$wan6_device" ] || uci -q set network.wan6.device='@wan'
+		uci -q delete network.wan6.ifname
+	fi
+fi
+
+uci commit network
+
+exit 0
