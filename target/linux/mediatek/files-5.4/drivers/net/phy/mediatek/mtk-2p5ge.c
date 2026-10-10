@@ -712,6 +712,8 @@ static int mt798x_2p5ge_phy_config_intr(struct phy_device *phydev)
 	else
 		reg_set_bits(priv, MTK_2P5GPHY_CHIP_SCU + IRQ_MASK, PHY_IRQ_MASK);
 
+	usleep_range(5000, 6000);
+
 	return mtk_phy_config_intr(phydev);
 }
 
