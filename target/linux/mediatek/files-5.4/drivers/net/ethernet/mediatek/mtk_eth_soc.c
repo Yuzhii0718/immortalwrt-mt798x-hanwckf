@@ -3595,7 +3595,10 @@ static int mtk_hwlro_rx_init(struct mtk_eth *eth)
 	lro_ctrl_dw0 |= MTK_LRO_ALT_PKT_CNT_MODE;
 
 	/* enable L4 PSH flag check */
-	lro_ctrl_dw0 |= MTK_LRO_L4_CTRL_PSH_EN;
+	if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_RX_V2) &&
+	    !MTK_HAS_CAPS(eth->soc->caps, MTK_GLO_MEM_ACCESS)) {
+		lro_ctrl_dw0 |= MTK_LRO_L4_CTRL_PSH_EN;
+	}
 
 	/* bandwidth threshold setting */
 	mtk_w32(eth, MTK_HW_LRO_BW_THRE, reg_map->pdma.lro_ctrl_dw0 + 0x8);
