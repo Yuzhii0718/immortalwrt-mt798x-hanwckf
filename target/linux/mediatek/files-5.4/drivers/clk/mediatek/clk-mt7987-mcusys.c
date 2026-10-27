@@ -17,18 +17,15 @@
 static DEFINE_SPINLOCK(mt7987_clk_lock);
 static const char *const mcu_bus_div_parents[] = { "cb_cksq_40m", "arm_ll" };
 
-static struct mtk_mux mcu_muxes[] = {
-	{
-		.id = CK_MCU_BUS_DIV_SEL,
-		.name = "mcu_bus_div_sel",
-		.mux_ofs = 0x7C0,
-		.mux_shift = 9,
-		.mux_width = 1,
-		.parent_names = mcu_bus_div_parents,
-		.num_parents = ARRAY_SIZE(mcu_bus_div_parents),
-		.ops = &mtk_mux_ops,
-		.flags = CLK_IS_CRITICAL,
-	}
+/*
+ * NOTE: 0x7C0 is a plain read-modify-write register (no set/clr/upd), so use
+ * the composite mux (generic clk_mux_ops, shifted mask) like kernel 6.12.
+ * mtk_mux_ops' set_parent does not shift the mask, so bit 9 never switched
+ * and the CPU stayed on arm_ll while cpufreq reprogrammed the PLL.
+ */
+static struct mtk_composite mcu_muxes[] = {
+	MUX_GATE_FLAGS(CK_MCU_BUS_DIV_SEL, "mcu_bus_div_sel",
+		       mcu_bus_div_parents, 0x7C0, 9, 1, -1, CLK_IS_CRITICAL),
 };
 
 static void __init mtk_mcusys_init(struct device_node *node)
@@ -45,8 +42,8 @@ static void __init mtk_mcusys_init(struct device_node *node)
 
 	clk_data = mtk_alloc_clk_data(CLK_MCU_NR_CLK);
 
-	mtk_clk_register_muxes(mcu_muxes, ARRAY_SIZE(mcu_muxes), node,
-			       &mt7987_clk_lock, clk_data);
+	mtk_clk_register_composites(mcu_muxes, ARRAY_SIZE(mcu_muxes), base,
+				    &mt7987_clk_lock, clk_data);
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
