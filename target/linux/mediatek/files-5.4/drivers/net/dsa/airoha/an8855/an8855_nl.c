@@ -28,13 +28,13 @@ struct an8855_priv *an8855_sw_priv;
 
 static DEFINE_MUTEX(an8855_devs_lock);
 
-void
+static void
 an8855_put(void)
 {
 	mutex_unlock(&an8855_devs_lock);
 }
 
-void
+static void
 an8855_lock(void)
 {
 	mutex_lock(&an8855_devs_lock);
@@ -244,11 +244,11 @@ static const enum an8855_attr an8855_nl_cmd_write_attrs[] = {
 
 static const struct an8855_nl_cmd_item an8855_nl_cmds[] = {
 	{
-	 .cmd = AN8855_CMD_READ,
-	 .require_dev = true,
-	 .process = an8855_nl_reply_read,
-	 .required_attrs = an8855_nl_cmd_read_attrs,
-	 .nr_required_attrs = ARRAY_SIZE(an8855_nl_cmd_read_attrs),
+		 .cmd = AN8855_CMD_READ,
+		 .require_dev = true,
+		 .process = an8855_nl_reply_read,
+		 .required_attrs = an8855_nl_cmd_read_attrs,
+		 .nr_required_attrs = ARRAY_SIZE(an8855_nl_cmd_read_attrs),
 	},
 	{
 		 .cmd = AN8855_CMD_WRITE,

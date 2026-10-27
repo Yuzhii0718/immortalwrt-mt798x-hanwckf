@@ -14,6 +14,13 @@
 
 #define AN8855_NUM_PHYS	5
 
+#define PHY_DEV_07H						(0x7)
+/* dev 07h, reg 03Ch: EEE Advertisement Register */
+#define EEE_ADV_REG						(0x3C)
+#define EEE_LP_ADV_REG					(0x3D)
+#define EEE_ADV_1000BT					(1 << 2)
+#define EEE_ADV_100BT					(1 << 1)
+
 /*phy calibration use*/
 #define DEV_1E				0x1E
 /*global device 0x1f, always set P0*/

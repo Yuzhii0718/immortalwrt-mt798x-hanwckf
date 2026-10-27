@@ -31,7 +31,7 @@
 #include "an8855_phy.h"
 
 /* AN8855 driver version */
-#define ARHT_AN8855_DSA_DRIVER_VER	"1.0.8"
+#define ARHT_AN8855_DSA_DRIVER_VER	"1.0.10"
 
 #define ARHT_CHIP_NAME                  "an8855"
 #define ARHT_PROC_DIR                   "air_sw"
@@ -451,7 +451,7 @@ an8855_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 		return;
 
 	for (i = 0; i < ARRAY_SIZE(an8855_mib); i++)
-		strncpy(data + i * ETH_GSTRING_LEN, an8855_mib[i].name,
+		strscpy(data + i * ETH_GSTRING_LEN, an8855_mib[i].name,
 			ETH_GSTRING_LEN);
 }
 
@@ -2769,13 +2769,14 @@ an8855_get_mac_eee(struct dsa_switch *ds, int port,
 			      struct ethtool_eee *e)
 {
 	struct an8855_priv *priv = ds->priv;
-	u32 eeecr, pmsr, ckgcr;
+	u32 pmcr, pmsr, ckgcr;
 
 	e->eee_enabled = !!(priv->eee_enable & BIT(port));
 
 	if (e->eee_enabled) {
-		eeecr = an8855_read(priv, AN8855_PMEEECR_P(port));
-		e->tx_lpi_enabled = !(eeecr & LPI_MODE_EN);
+		pmcr = an8855_read(priv, AN8855_PMCR_P(port));
+		e->tx_lpi_enabled = !!(pmcr & (PMCR_FORCE_EEE1G
+				| PMCR_FORCE_EEE100));
 		ckgcr = an8855_read(priv, AN8855_CKGCR);
 		e->tx_lpi_timer =
 		    ((ckgcr & LPI_TXIDLE_THD_MASK) >> LPI_TXIDLE_THD) / 500;
@@ -2795,21 +2796,32 @@ an8855_set_mac_eee(struct dsa_switch *ds, int port,
 			      struct ethtool_eee *e)
 {
 	struct an8855_priv *priv = ds->priv;
-	u32 eeecr;
+	int ret;
+	u16 cl45_data = 0;
+	u32 pmcr = 0;
+
+	pmcr = an8855_read(priv, AN8855_PMCR_P(port));
+
+	cl45_data = an8855_phy_cl45_read(priv, port, PHY_DEV_07H,
+		EEE_ADV_REG);
 
 	if (e->eee_enabled) {
 		priv->eee_enable |= BIT(port);
-		eeecr = an8855_read(priv, AN8855_PMEEECR_P(port));
-		eeecr &= ~LPI_MODE_EN;
-		if (e->tx_lpi_enabled)
-			eeecr |= LPI_MODE_EN;
-		an8855_write(priv, AN8855_PMEEECR_P(port), eeecr);
+		pmcr |= (PMCR_FORCE_EEE1G | PMCR_FORCE_EEE100);
+		cl45_data |= (EEE_ADV_1000BT | EEE_ADV_100BT);
 	} else {
 		priv->eee_enable &= ~(BIT(port));
-		eeecr = an8855_read(priv, AN8855_PMEEECR_P(port));
-		eeecr &= ~LPI_MODE_EN;
-		an8855_write(priv, AN8855_PMEEECR_P(port), eeecr);
+		pmcr &= ~(PMCR_FORCE_EEE1G | PMCR_FORCE_EEE100);
+		cl45_data &= ~(EEE_ADV_1000BT | EEE_ADV_100BT);
 	}
+
+	ret = an8855_phy_cl45_write(priv, port, PHY_DEV_07H,
+		EEE_ADV_REG, cl45_data);
+
+	if (ret)
+		return ret;
+
+	an8855_write(priv, AN8855_PMCR_P(port), pmcr);
 
 	return 0;
 }
@@ -2999,9 +3011,9 @@ an8855_probe(struct mdio_device *mdiodev)
 	struct an8855_priv *priv;
 	struct device_node *dn;
 	struct device_node *switch_node = NULL;
-// #if (KERNEL_VERSION(5, 4, 284) < LINUX_VERSION_CODE)
+#if (KERNEL_VERSION(5, 4, 284) < LINUX_VERSION_CODE)
 	struct device *dev;
-// #endif
+#endif
 	int ret;
 
 	dn = mdiodev->dev.of_node;
@@ -3009,23 +3021,23 @@ an8855_probe(struct mdio_device *mdiodev)
 	priv = devm_kzalloc(&mdiodev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
-// #if (KERNEL_VERSION(5, 4, 284) < LINUX_VERSION_CODE)
+#if (KERNEL_VERSION(5, 4, 284) < LINUX_VERSION_CODE)
 	priv->bus = mdiodev->bus;
 	priv->dev = &mdiodev->dev;
 
 	dev = priv->dev;
 	priv->ds = devm_kzalloc(dev, sizeof(*priv->ds), GFP_KERNEL);
 	if (!priv->ds)
-// #else
-// 	priv->ds = dsa_switch_alloc(&mdiodev->dev, AN8855_NUM_PORTS);
-// #endif
+#else
+	priv->ds = dsa_switch_alloc(&mdiodev->dev, AN8855_NUM_PORTS);
+#endif
 	if (!priv->ds)
 		return -ENOMEM;
 
-// #if (KERNEL_VERSION(5, 4, 284) < LINUX_VERSION_CODE)
+#if (KERNEL_VERSION(5, 4, 284) < LINUX_VERSION_CODE)
 	priv->ds->dev = dev;
 	priv->ds->num_ports = AN8855_NUM_PORTS;
-// #endif
+#endif
 	/* Get the hardware identifier from the devicetree node.
 	 * We will need it for some of the clock and regulator setup.
 	 */
