@@ -22,7 +22,7 @@
 #define AN8811HB_MD32_DM		"airoha/an8811hb/EthMD32_CRC.DM.bin"
 #define AN8811HB_MD32_DSP		"airoha/an8811hb/EthMD32_CRC.DSP.bin"
 
-#define AN8811HB_DRIVER_VERSION		"v1.0.3"
+#define AN8811HB_DRIVER_VERSION		"v1.0.4"
 
 #define AIR_FW_ADDR_DM	0x00000000
 #define AIR_FW_ADDR_DSP	0x00100000
