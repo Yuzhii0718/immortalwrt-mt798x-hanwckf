@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * Copyright (C) 2021 MediaTek Inc.
+ */
+
 /dts-v1/;
 #include "mt7986-fpga.dtsi"
 / {
@@ -157,7 +162,8 @@
 
 		partition@580000 {
 			label = "ubi";
-			reg = <0x580000 0x4000000>;
+			reg = <0x580000 0x0>;
+			mtd-extend-to-end;
 		};
 	};
 };

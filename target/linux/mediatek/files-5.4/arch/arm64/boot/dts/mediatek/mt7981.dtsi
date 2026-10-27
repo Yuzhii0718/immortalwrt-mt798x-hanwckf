@@ -1,15 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
 /*
  * Copyright (c) 2020 MediaTek Inc.
  * Author: Sam.Shih <sam.shih@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #include <dt-bindings/interrupt-controller/irq.h>
@@ -140,12 +132,6 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-
-		ramoops@42ff0000 {
-			compatible = "ramoops";
-			reg = <0 0x42ff0000 0 0x10000>;
-			record-size = <0x1000>;
-		};
 
 		/* 512 KiB reserved for ARM Trusted Firmware (BL31 + BL32) */
 		secmon_reserved: secmon@43000000 {
@@ -441,8 +427,6 @@
 		resets = <&ethsys 0>;
 		reset-names = "mtketh";
 		status = "disabled";
-		mtketh-ppe-num = <2>;
-		ext-devices-prefix = "usb","wwan","rmnet","eth2","eth3","eth4","eth1";
 	};
 
 	sgmiisys0: syscon@10060000 {

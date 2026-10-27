@@ -1,4 +1,7 @@
-/* SPDX-License-Identifier: (GPL-2.0-only OR MIT) */
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * Copyright (C) 2024 MediaTek Inc.
+ */
 
 #include "mt7987-pinctrl.dtsi"
 
@@ -40,7 +43,8 @@
 	};
 	partition@780000 {
 		label = "ubi";
-		reg = <0x780000 0x7080000>;
+		reg = <0x780000 0x0>;
+		mtd-extend-to-end;
 	};
 };
 

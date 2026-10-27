@@ -80,7 +80,8 @@
 
 			partition@780000 {
 				label = "ubi";
-				reg = <0x780000 0x7080000>;
+				reg = <0x780000 0x0>;
+				mtd-extend-to-end;
 			};
 		};
 	};
@@ -481,13 +482,14 @@
 	mdio: mdio-bus {
 		#address-cells = <1>;
 		#size-cells = <0>;
+		clock-frequency = <12500000>;
+		reset-gpios = <&pio 71 1>;
+		reset-delay-us = <200000>;
+		reset-post-delay-us = <350000>;
 
 		phy0: ethernet-phy@0 {
 			reg = <28>;
 			compatible = "ethernet-phy-ieee802.3-c45";
-			reset-gpios = <&pio 72 1>;
-			reset-assert-us = <200000>;
-			reset-deassert-us = <350000>;
 			txfullscale = /bits/ 16 <64 3 4 4 4>;
 			firmware-name = "as21x1x_fw.bin";
 
@@ -514,9 +516,6 @@
 		phy1: ethernet-phy@1 {
 			reg = <24>;
 			compatible = "ethernet-phy-ieee802.3-c45";
-			reset-gpios = <&pio 71 1>;
-			reset-assert-us = <200000>;
-			reset-deassert-us = <350000>;
 			txfullscale = /bits/ 16 <64 2 4 2 3>;
 			firmware-name = "as21x1x_fw.bin";
 
