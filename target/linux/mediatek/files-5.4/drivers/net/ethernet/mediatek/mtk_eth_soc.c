@@ -305,6 +305,8 @@ struct net_device *(*mtk_get_tnl_dev)(u8 tops_crsn) = NULL;
 EXPORT_SYMBOL(mtk_get_tnl_dev);
 void (*mtk_set_tops_crsn)(struct sk_buff *skb, u8 tops_crsn) = NULL;
 EXPORT_SYMBOL(mtk_set_tops_crsn);
+void (*mtk_crypto_set_dec_secpath)(struct sk_buff *skb, u16 cdrt) = NULL;
+EXPORT_SYMBOL(mtk_crypto_set_dec_secpath);
 
 void mtk_w32(struct mtk_eth *eth, u32 val, unsigned reg)
 {
@@ -2883,6 +2885,9 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
 			trace_printk("[%s] rxd:(entry=%x,sport=%x,reason=%x,alg=%x\n",
 				     __func__, skb_hnat_entry(skb), skb_hnat_sport(skb),
 				     skb_hnat_reason(skb), skb_hnat_alg(skb));
+
+		if (mtk_crypto_set_dec_secpath)
+			mtk_crypto_set_dec_secpath(skb, skb_hnat_cdrt(skb));
 #endif
 		if (mtk_set_tops_crsn && skb && tops_crsn)
 			mtk_set_tops_crsn(skb, tops_crsn);

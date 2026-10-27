@@ -2438,6 +2438,7 @@ extern u32 dbg_show_level;
 extern u32 (*mtk_get_tnl_netsys_params)(struct sk_buff *skb);
 extern struct net_device *(*mtk_get_tnl_dev)(u8 tops_crsn);
 extern void (*mtk_set_tops_crsn)(struct sk_buff *skb, u8 tops_crsn);
+extern void (*mtk_crypto_set_dec_secpath)(struct sk_buff *skb, u16 cdrt);
 
 /* read the hardware status register */
 void mtk_stats_update_mac(struct mtk_mac *mac);
