@@ -118,6 +118,7 @@ static struct sk_buff *mxl862_8021q_tag_xmit(struct sk_buff *skb,
 	u16 tx_vid = dsa_8021q_tx_vid(dp->ds, port);
 	u16 queue_mapping = skb_get_queue_mapping(skb);
 	u8 pcp = netdev_txq_to_tc(dev, queue_mapping);
+	skb_set_queue_mapping(skb, dp->index);
 
 	dsa_8021q_xmit(skb, dev, ETH_P_8021Q,
 			      ((pcp << VLAN_PRIO_SHIFT) | tx_vid));
