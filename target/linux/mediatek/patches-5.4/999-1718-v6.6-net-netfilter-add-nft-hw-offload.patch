@@ -12,7 +12,7 @@ Signed-off-by: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
  net/netfilter/nf_flow_table_inet.c       |  72 ++++++++++++++++++++++++++++++
  net/netfilter/nf_tables_api.c            | 811 +++++++++++++++++------
  net/netfilter/nft_flow_offload.c         | 441 +++++++++++-
- 7 files changed, 1148 insertions(+), 241 deletions(-)
+ 7 files changed, 1150 insertions(+), 240 deletions(-)
 
 diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
 index 4f77e2f..e5b2411 100644
@@ -2242,11 +2242,13 @@ index 4f77e2f..e5b2411 100644
  	if (tcph) {
  		ct->proto.tcp.seen[0].flags |= IP_CT_TCP_FLAG_BE_LIBERAL;
  		ct->proto.tcp.seen[1].flags |= IP_CT_TCP_FLAG_BE_LIBERAL;
-@@ -128,12 +531,12 @@ static void nft_flow_offload_eval(const
+@@ -128,12 +531,15 @@ static void nft_flow_offload_eval(const
  	if (ret < 0)
  		goto err_flow_add;
  
--	dst_release(route.tuple[!dir].dst);
++	dst_release(route.tuple[dir].dst);
+ 	dst_release(route.tuple[!dir].dst);
++
  	return;
  
  err_flow_add:
@@ -2256,10 +2258,11 @@ index 4f77e2f..e5b2411 100644
  	dst_release(route.tuple[!dir].dst);
  err_flow_route:
  	clear_bit(IPS_OFFLOAD_BIT, &ct->status);
-@@ -257,3 +660,4 @@ module_exit(nft_flow_offload_module_exit
+@@ -257,3 +663,4 @@ module_exit(nft_flow_offload_module_exit
  MODULE_LICENSE("GPL");
  MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
  MODULE_ALIAS_NFT_EXPR("flow_offload");
 +MODULE_DESCRIPTION("nftables hardware flow offload module");
 -- 
 2.45.2
+
